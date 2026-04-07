@@ -111,6 +111,10 @@ pub enum ToolsCommands {
         #[arg(short, long)]
         category: Option<String>,
     },
+    /// Sync schema from MCP Server and write to schemas/lexiang.json (development self-bootstrap)
+    SyncEmbedded,
+    /// Fetch unlisted tool schemas from MCP Server based on `tool_names` in schemas/unlisted.json
+    SyncUnlisted,
 }
 
 #[derive(clap::Subcommand)]
