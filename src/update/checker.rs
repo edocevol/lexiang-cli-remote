@@ -166,12 +166,10 @@ impl UpdateChecker {
     pub fn should_check(&self) -> bool {
         let last_check = self.load_last_check_time();
         match last_check {
-            Some(time) => {
-                SystemTime::now()
-                    .duration_since(time)
-                    .map(|d| d >= self.config.check_interval)
-                    .unwrap_or(true)
-            }
+            Some(time) => SystemTime::now()
+                .duration_since(time)
+                .map(|d| d >= self.config.check_interval)
+                .unwrap_or(true),
             None => true,
         }
     }
@@ -301,10 +299,7 @@ fn find_platform_asset(assets: &[GitHubAsset]) -> Option<String> {
             "linux-amd64".to_string(),
             "linux-gnu".to_string(),
         ],
-        ("linux", "aarch64") => vec![
-            "linux-arm64".to_string(),
-            "linux-aarch64".to_string(),
-        ],
+        ("linux", "aarch64") => vec!["linux-arm64".to_string(), "linux-aarch64".to_string()],
         ("windows", "x86_64") => vec![
             "windows-x86_64".to_string(),
             "windows-amd64".to_string(),

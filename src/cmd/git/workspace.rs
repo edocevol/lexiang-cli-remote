@@ -857,7 +857,9 @@ async fn handle_push(config: &Config, dry_run: bool, force: bool) -> Result<()> 
             {
                 Ok(id) => id,
                 Err(e) => {
-                    stats.errors.push(format!("{}: failed to create parent folder: {}", path, e));
+                    stats
+                        .errors
+                        .push(format!("{}: failed to create parent folder: {}", path, e));
                     continue;
                 }
             }
@@ -1208,7 +1210,7 @@ async fn create_folder(client: &McpClient, parent_entry_id: &str, name: &str) ->
     Ok(entry_id.to_string())
 }
 
-/// 确保远程父文件夹存在，返回最终的 parent_entry_id
+/// 确保远程父文件夹存在，返回最终的 `parent_entry_id`
 async fn ensure_parent_folders(
     client: &McpClient,
     root_entry_id: &str,

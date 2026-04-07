@@ -81,6 +81,7 @@ impl SchemaManager {
     }
 
     /// 获取所有 namespace
+    #[allow(dead_code)]
     pub fn get_namespaces(&self) -> Vec<String> {
         self.collection
             .as_ref()
