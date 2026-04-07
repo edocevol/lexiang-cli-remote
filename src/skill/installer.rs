@@ -212,86 +212,41 @@ impl SkillInstaller {
         source_files: &[PathBuf],
         target_dir: &Path,
     ) -> Result<InstallResult> {
+        // 安装前先清理旧文件，确保 update 场景不残留过期文件
+        if target_dir.exists() {
+            fs::remove_dir_all(target_dir)
+                .with_context(|| format!("清理旧 skill 目录失败: {:?}", target_dir))?;
+        }
         fs::create_dir_all(target_dir)
             .with_context(|| format!("创建目录失败: {:?}", target_dir))?;
 
         let mut files_installed = Vec::new();
 
-        // 根据 Agent 类型选择安装策略
-        match agent {
-            AgentKind::ClaudeCode | AgentKind::CodeBuddy => {
-                // Claude Code & CodeBuddy: 使用 SKILL.md 格式
-                // 将所有 namespace skill 合并为一个 SKILL.md
-                let skill_content = self.generate_unified_skill_md(source_files)?;
-                let skill_path = target_dir.join("SKILL.md");
-                fs::write(&skill_path, &skill_content)
-                    .with_context(|| format!("写入失败: {:?}", skill_path))?;
-                files_installed.push(skill_path);
+        // 所有 Agent 统一使用 SKILL.md + references/ 结构
+        let skill_content = self.generate_unified_skill_md(source_files)?;
+        let skill_path = target_dir.join("SKILL.md");
+        fs::write(&skill_path, &skill_content)
+            .with_context(|| format!("写入失败: {:?}", skill_path))?;
+        files_installed.push(skill_path);
 
-                // 复制各 namespace 文件作为参考文档
-                for src_file in source_files {
-                    let filename = src_file
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string();
-                    if filename == "README.md" {
-                        continue; // SKILL.md 已包含概览信息
-                    }
-                    let dest = target_dir.join(&filename);
-                    fs::copy(src_file, &dest)
-                        .with_context(|| format!("复制失败: {:?} -> {:?}", src_file, dest))?;
-                    files_installed.push(dest);
-                }
-            }
-            AgentKind::GeminiCli => {
-                // Gemini CLI: 使用 SKILL.md 格式（同样支持 skills 目录）
-                let skill_content = self.generate_unified_skill_md(source_files)?;
-                let skill_path = target_dir.join("SKILL.md");
-                fs::write(&skill_path, &skill_content)
-                    .with_context(|| format!("写入失败: {:?}", skill_path))?;
-                files_installed.push(skill_path);
+        // 创建 references/ 子目录并复制 namespace 参考文档
+        let refs_dir = target_dir.join("references");
+        fs::create_dir_all(&refs_dir)
+            .with_context(|| format!("创建 references 目录失败: {:?}", refs_dir))?;
 
-                // 复制参考文档
-                for src_file in source_files {
-                    let filename = src_file
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string();
-                    if filename == "README.md" {
-                        continue;
-                    }
-                    let dest = target_dir.join(&filename);
-                    fs::copy(src_file, &dest)
-                        .with_context(|| format!("复制失败: {:?} -> {:?}", src_file, dest))?;
-                    files_installed.push(dest);
-                }
+        for src_file in source_files {
+            let filename = src_file
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            if filename == "README.md" {
+                continue; // SKILL.md 已包含概览信息
             }
-            AgentKind::CodexCli => {
-                // Codex CLI: 使用 AGENTS.md 风格
-                let agents_content = self.generate_agents_md(source_files)?;
-                let agents_path = target_dir.join("SKILL.md");
-                fs::write(&agents_path, &agents_content)
-                    .with_context(|| format!("写入失败: {:?}", agents_path))?;
-                files_installed.push(agents_path);
-
-                // 复制参考文档
-                for src_file in source_files {
-                    let filename = src_file
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string();
-                    if filename == "README.md" {
-                        continue;
-                    }
-                    let dest = target_dir.join(&filename);
-                    fs::copy(src_file, &dest)
-                        .with_context(|| format!("复制失败: {:?} -> {:?}", src_file, dest))?;
-                    files_installed.push(dest);
-                }
-            }
+            let dest = refs_dir.join(&filename);
+            fs::copy(src_file, &dest)
+                .with_context(|| format!("复制失败: {:?} -> {:?}", src_file, dest))?;
+            files_installed.push(dest);
         }
 
         Ok(InstallResult {
@@ -312,19 +267,42 @@ impl SkillInstaller {
         })
     }
 
-    /// 收集源目录中的 .md 文件
+    /// 收集源目录中的 .md 文件（包括 references/ 子目录）
     fn collect_source_files(&self) -> Result<Vec<PathBuf>> {
         let mut files = Vec::new();
-        for entry in fs::read_dir(&self.source_dir)
-            .with_context(|| format!("读取目录失败: {:?}", self.source_dir))?
-        {
-            let entry = entry?;
-            let path = entry.path();
-            if path.extension().is_some_and(|ext| ext == "md") {
-                files.push(path);
+
+        // 收集根目录的 README.md
+        let readme = self.source_dir.join("README.md");
+        if readme.exists() {
+            files.push(readme);
+        }
+
+        // 收集 references/ 子目录中的 .md 文件
+        let refs_dir = self.source_dir.join("references");
+        if refs_dir.exists() {
+            for entry in
+                fs::read_dir(&refs_dir).with_context(|| format!("读取目录失败: {:?}", refs_dir))?
+            {
+                let entry = entry?;
+                let path = entry.path();
+                if path.extension().is_some_and(|ext| ext == "md") {
+                    files.push(path);
+                }
+            }
+        } else {
+            // 兼容旧格式：直接收集根目录的 .md 文件
+            for entry in fs::read_dir(&self.source_dir)
+                .with_context(|| format!("读取目录失败: {:?}", self.source_dir))?
+            {
+                let entry = entry?;
+                let path = entry.path();
+                if path.extension().is_some_and(|ext| ext == "md") {
+                    files.push(path);
+                }
             }
         }
-        // README.md 排第一
+
+        // README.md 排第一，其余按字母序
         files.sort_by(|a, b| {
             let a_is_readme = a.file_name().unwrap_or_default() == "README.md";
             let b_is_readme = b.file_name().unwrap_or_default() == "README.md";
@@ -373,7 +351,7 @@ impl SkillInstaller {
                 continue;
             }
             content.push_str(&format!(
-                "- [`{}`]({}) - {} namespace 详细参考\n",
+                "- [`{}`](references/{}) - {} namespace 详细参考\n",
                 filename,
                 filename,
                 filename.trim_end_matches(".md")
@@ -381,12 +359,6 @@ impl SkillInstaller {
         }
 
         Ok(content)
-    }
-
-    /// 生成 AGENTS.md 格式（Codex CLI 风格）
-    fn generate_agents_md(&self, source_files: &[PathBuf]) -> Result<String> {
-        // Codex 的 SKILL.md 与 Claude Code 格式相同
-        self.generate_unified_skill_md(source_files)
     }
 
     /// 卸载 skill

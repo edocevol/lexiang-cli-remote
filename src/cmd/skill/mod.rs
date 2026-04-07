@@ -86,6 +86,20 @@ pub fn handle_install(agent_str: &str, scope_str: &str, project_dir: Option<&str
     Ok(())
 }
 
+/// 更新 skill：重新生成 + 重新安装（lx skill update）
+pub fn handle_update(agent_str: &str, scope_str: &str, project_dir: Option<&str>) -> Result<()> {
+    println!("🔄 更新 skill 文件...\n");
+
+    // 1. 重新生成
+    handle_generate(None)?;
+    println!();
+
+    // 2. 重新安装（install_to_dir 会先清理旧文件）
+    handle_install(agent_str, scope_str, project_dir)?;
+
+    Ok(())
+}
+
 /// 卸载 skill（lx skill uninstall）
 pub fn handle_uninstall(agent_str: &str, scope_str: &str, project_dir: Option<&str>) -> Result<()> {
     let agents = parse_agents(agent_str)?;

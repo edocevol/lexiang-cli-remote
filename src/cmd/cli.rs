@@ -133,6 +133,18 @@ pub enum SkillCommands {
         #[arg(short, long)]
         project_dir: Option<String>,
     },
+    /// Update skills: regenerate from latest schema and reinstall
+    Update {
+        /// Target agents: claude, codebuddy, gemini, codex, or "all" (default: all)
+        #[arg(short, long, default_value = "all")]
+        agent: String,
+        /// Install scope: user (global) or project (current dir)
+        #[arg(short, long, default_value = "user")]
+        scope: String,
+        /// Project directory (for project scope, default: current dir)
+        #[arg(short, long)]
+        project_dir: Option<String>,
+    },
     /// Uninstall skills from AI agent config directories
     Uninstall {
         /// Target agents: claude, codebuddy, gemini, codex, or "all" (default: all)

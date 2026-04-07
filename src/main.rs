@@ -11,6 +11,7 @@ mod worktree;
 mod json_rpc;
 
 mod mcp;
+mod service;
 mod skill;
 mod version;
 
@@ -35,6 +36,12 @@ async fn main() -> anyhow::Result<()> {
         cmd::print_help_with_dynamic_commands(schema.as_ref());
         return Ok(());
     }
+
+    // 检查是否是高级 block 命令（静态优先，动态回退）
+    if args.len() >= 3 && args[1] == "block" && cmd::try_handle_block_command(&args).await? {
+        return Ok(());
+    }
+    // 不是高级命令，继续 fallthrough 到动态命令
 
     // 检查是否是动态命令
     if args.len() >= 2 {
@@ -135,6 +142,13 @@ async fn main() -> anyhow::Result<()> {
                 project_dir,
             }) => {
                 cmd::handle_install(&agent, &scope, project_dir.as_deref())?;
+            }
+            Some(cmd::SkillCommands::Update {
+                agent,
+                scope,
+                project_dir,
+            }) => {
+                cmd::handle_update(&agent, &scope, project_dir.as_deref())?;
             }
             Some(cmd::SkillCommands::Uninstall {
                 agent,

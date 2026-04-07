@@ -2,13 +2,18 @@
 //!
 //! 根据 MCP schema 自动生成 AI agent 技能文件，用于指导 agent 如何使用 CLI 命令。
 
+use crate::cmd::block::build_block_commands;
 use crate::datadir;
 use crate::mcp::schema::types::{
     extract_command_name, extract_namespace, to_kebab_case, McpCategory, McpSchemaCollection,
 };
 use anyhow::Result;
+use std::fmt::Write as _;
 use std::fs;
 use std::path::PathBuf;
+
+/// Block 高级命令的文档模板（编译期嵌入）
+const BLOCK_ADVANCED_TEMPLATE: &str = include_str!("templates/block_advanced.md");
 
 /// 安全截断字符串（处理多字节 UTF-8 字符）
 fn truncate_str(s: &str, max_chars: usize) -> String {
@@ -37,6 +42,10 @@ impl<'a> SkillGenerator<'a> {
     pub fn generate_all(&self) -> Result<Vec<PathBuf>> {
         fs::create_dir_all(&self.output_dir)?;
 
+        // 创建 references/ 子目录
+        let references_dir = self.output_dir.join("references");
+        fs::create_dir_all(&references_dir)?;
+
         let mut generated_files = Vec::new();
 
         // 1. 生成总览文件
@@ -44,11 +53,11 @@ impl<'a> SkillGenerator<'a> {
         fs::write(&readme_path, self.generate_readme())?;
         generated_files.push(readme_path);
 
-        // 2. 为每个 namespace 生成 skill 文件
+        // 2. 为每个 namespace 生成 skill 文件到 references/ 子目录
         for category in &self.schema.categories {
             let namespace = extract_namespace(&category.name);
             let filename = format!("{}.md", namespace);
-            let filepath = self.output_dir.join(&filename);
+            let filepath = references_dir.join(&filename);
 
             let content = self.generate_namespace_skill(category);
             fs::write(&filepath, content)?;
@@ -85,7 +94,7 @@ impl<'a> SkillGenerator<'a> {
             let desc = category.description.as_deref().unwrap_or("无描述");
             let tool_count = category.tools.len();
             content.push_str(&format!(
-                "| `{}` | {} | {} | [{}.md]({}.md) |\n",
+                "| `{}` | {} | {} | [{}.md](references/{}.md) |\n",
                 namespace, desc, tool_count, namespace, namespace
             ));
         }
@@ -106,7 +115,7 @@ impl<'a> SkillGenerator<'a> {
         content.push_str("## 如何使用技能文件\n\n");
         content.push_str("AI agent 可以读取这些 skill 文件来学习如何使用 lx CLI。\n\n");
         content.push_str("例如，当用户需要搜索知识库时，agent 可以：\n");
-        content.push_str("1. 读取 `search.md` 了解搜索命令的参数和用法\n");
+        content.push_str("1. 读取 `references/search.md` 了解搜索命令的参数和用法\n");
         content.push_str("2. 构建正确的命令执行搜索\n");
         content.push_str("3. 解析输出结果\n");
 
@@ -206,6 +215,16 @@ impl<'a> SkillGenerator<'a> {
         content.push_str("## 典型工作流\n\n");
         content.push_str(&self.generate_workflow_examples(&namespace));
 
+        // 高级封装命令（仅 block 命名空间）
+        if namespace == "block" {
+            content.push_str("\n---\n\n");
+            // 自动生成的命令参考表（从 clap 定义读取，保持文档与代码一致）
+            content.push_str(&generate_block_command_reference());
+            content.push_str("\n\n");
+            // 嵌入式模板：工作流示例和使用说明
+            content.push_str(BLOCK_ADVANCED_TEMPLATE);
+        }
+
         content
     }
 
@@ -257,15 +276,12 @@ impl<'a> SkillGenerator<'a> {
                 content.push_str("```\n");
             }
             "block" => {
-                content.push_str("### 操作文档块\n\n");
-                content.push_str("```bash\n");
-                content.push_str("# 获取块详情\n");
-                content.push_str("lx block describe --block-id <BLOCK_ID>\n\n");
-                content.push_str("# 获取块的子节点\n");
-                content.push_str("lx block list-children --block-id <BLOCK_ID>\n\n");
-                content.push_str("# 更新块内容\n");
-                content.push_str("lx block update --block-id <BLOCK_ID> --text \"新内容\"\n");
-                content.push_str("```\n");
+                content.push_str("### 操作文档块（原子命令）\n\n");
+                content.push_str(
+                    "> **推荐优先使用高级命令**（见下方），原子命令适合精细控制单个块。\n\n",
+                );
+                content.push_str("原子命令由 MCP schema 动态生成，参见上方「命令详情」。\n");
+                // 高级命令的完整文档通过模板嵌入，在 generate_namespace_skill() 末尾追加
             }
             "file" => {
                 content.push_str("### 文件操作\n\n");
@@ -295,6 +311,63 @@ impl<'a> SkillGenerator<'a> {
     }
 }
 
+/// 从 clap 命令定义自动生成高级 block 命令参考表
+///
+/// 确保文档与代码始终一致：新增/修改命令只需改 `cmd::block::build_block_commands()`，
+/// 文档会自动更新。
+fn generate_block_command_reference() -> String {
+    let commands = build_block_commands();
+    let mut out = String::new();
+
+    out.push_str("## 高级命令参考\n\n");
+    out.push_str("| 命令 | 描述 | 必填参数 | 可选参数 |\n");
+    out.push_str("|------|------|----------|----------|\n");
+
+    for cmd in &commands {
+        let name = cmd.get_name();
+        let about = cmd
+            .get_about()
+            .map(std::string::ToString::to_string)
+            .unwrap_or_default();
+
+        let mut required = Vec::new();
+        let mut optional = Vec::new();
+
+        for arg in cmd.get_arguments() {
+            let arg_name = arg.get_id().as_str();
+            // 跳过 clap 内建参数
+            if arg_name == "help" || arg_name == "version" {
+                continue;
+            }
+            let flag = format!("`--{}`", arg_name);
+            if arg.is_required_set() {
+                required.push(flag);
+            } else {
+                optional.push(flag);
+            }
+        }
+
+        let required_str = if required.is_empty() {
+            "-".to_string()
+        } else {
+            required.join(", ")
+        };
+        let optional_str = if optional.is_empty() {
+            "-".to_string()
+        } else {
+            optional.join(", ")
+        };
+
+        let _ = writeln!(
+            out,
+            "| `lx block {}` | {} | {} | {} |",
+            name, about, required_str, optional_str
+        );
+    }
+
+    out
+}
+
 /// 生成 skill 文件到默认目录
 #[allow(dead_code)]
 pub fn generate_skills(schema: &McpSchemaCollection) -> Result<Vec<PathBuf>> {
@@ -310,9 +383,8 @@ mod tests {
     use crate::mcp::schema::types::{McpCategory, McpCategoryTool};
     use std::collections::HashMap;
 
-    #[test]
-    fn test_skill_generator_readme() {
-        let schema = McpSchemaCollection {
+    fn test_schema() -> McpSchemaCollection {
+        McpSchemaCollection {
             version: "test".to_string(),
             categories: vec![McpCategory {
                 name: "teamspace.team".to_string(),
@@ -330,18 +402,40 @@ mod tests {
                 ],
             }],
             tools: HashMap::new(),
-        };
+        }
+    }
 
-        let temp_dir = std::env::temp_dir().join("lexiang-skill-test");
+    #[test]
+    fn test_skill_generator_readme() {
+        let schema = test_schema();
+        let temp_dir = std::env::temp_dir().join("lexiang-skill-test-readme");
         let generator = SkillGenerator::new(&schema, temp_dir.clone());
 
         let readme = generator.generate_readme();
         assert!(readme.contains("# lx CLI Skills"));
-        // namespace extracted as "team" from "teamspace.team"
         assert!(readme.contains("team"));
         assert!(readme.contains("团队管理"));
+        // 链接应指向 references/ 子目录
+        assert!(readme.contains("references/team.md"));
 
-        // Cleanup
+        let _ = fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn test_skill_generator_references_dir() {
+        let schema = test_schema();
+        let temp_dir = std::env::temp_dir().join("lexiang-skill-test-refs");
+        let _ = fs::remove_dir_all(&temp_dir);
+
+        let generator = SkillGenerator::new(&schema, temp_dir.clone());
+        let files = generator.generate_all().unwrap();
+
+        // 应生成 README.md + references/team.md
+        assert_eq!(files.len(), 2);
+        assert!(temp_dir.join("README.md").exists());
+        assert!(temp_dir.join("references").is_dir());
+        assert!(temp_dir.join("references/team.md").exists());
+
         let _ = fs::remove_dir_all(temp_dir);
     }
 }
