@@ -11,6 +11,7 @@ mod worktree;
 mod json_rpc;
 
 mod mcp;
+mod skill;
 mod version;
 
 use clap::Parser;
@@ -123,7 +124,34 @@ async fn main() -> anyhow::Result<()> {
             cmd::ToolsCommands::Categories => cmd::handle_categories()?,
             cmd::ToolsCommands::Version => cmd::handle_version()?,
             cmd::ToolsCommands::List { category } => cmd::handle_list(category.as_deref())?,
-            cmd::ToolsCommands::Skill { output } => cmd::handle_skill(output.as_deref())?,
+        },
+        Some(Commands::Skill { command: subcmd }) => match subcmd {
+            Some(cmd::SkillCommands::Generate { output }) => {
+                cmd::handle_generate(output.as_deref())?;
+            }
+            Some(cmd::SkillCommands::Install {
+                agent,
+                scope,
+                project_dir,
+            }) => {
+                cmd::handle_install(&agent, &scope, project_dir.as_deref())?;
+            }
+            Some(cmd::SkillCommands::Uninstall {
+                agent,
+                scope,
+                project_dir,
+            }) => {
+                cmd::handle_uninstall(&agent, &scope, project_dir.as_deref())?;
+            }
+            Some(cmd::SkillCommands::Status { project_dir }) => {
+                cmd::handle_status(project_dir.as_deref())?;
+            }
+            None => {
+                // 默认行为：生成 + 安装到所有 agent（用户级）
+                cmd::handle_generate(None)?;
+                println!();
+                cmd::handle_install("all", "user", None)?;
+            }
         },
         Some(Commands::Update { command }) => match command {
             Some(cmd::UpdateCommands::Check { prerelease }) => {
@@ -165,7 +193,8 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         None => {
-            println!("Use 'lx --help' for usage");
+            // 默认显示帮助（包含动态命令）
+            cmd::print_help_with_dynamic_commands(schema.as_ref());
             // 无命令时也检查更新
             cmd::auto_check_update().await;
         }

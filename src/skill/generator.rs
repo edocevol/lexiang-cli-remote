@@ -2,8 +2,10 @@
 //!
 //! 根据 MCP schema 自动生成 AI agent 技能文件，用于指导 agent 如何使用 CLI 命令。
 
-use super::types::{extract_command_name, extract_namespace, to_kebab_case, McpSchemaCollection};
 use crate::datadir;
+use crate::mcp::schema::types::{
+    extract_command_name, extract_namespace, to_kebab_case, McpCategory, McpSchemaCollection,
+};
 use anyhow::Result;
 use std::fs;
 use std::path::PathBuf;
@@ -100,7 +102,7 @@ impl<'a> SkillGenerator<'a> {
     }
 
     /// 生成单个 namespace 的 skill 文件
-    fn generate_namespace_skill(&self, category: &super::types::McpCategory) -> String {
+    fn generate_namespace_skill(&self, category: &McpCategory) -> String {
         let namespace = extract_namespace(&category.name);
         let mut content = String::new();
 
@@ -301,22 +303,23 @@ pub fn generate_skills(schema: &McpSchemaCollection) -> Result<Vec<PathBuf>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mcp::schema::types::{McpCategory, McpCategoryTool};
     use std::collections::HashMap;
 
     #[test]
     fn test_skill_generator_readme() {
         let schema = McpSchemaCollection {
             version: "test".to_string(),
-            categories: vec![super::super::types::McpCategory {
+            categories: vec![McpCategory {
                 name: "teamspace.team".to_string(),
                 description: Some("团队管理".to_string()),
                 tool_count: 2,
                 tools: vec![
-                    super::super::types::McpCategoryTool {
+                    McpCategoryTool {
                         name: "team_list_teams".to_string(),
                         description: Some("列出团队".to_string()),
                     },
-                    super::super::types::McpCategoryTool {
+                    McpCategoryTool {
                         name: "team_describe_team".to_string(),
                         description: Some("获取团队详情".to_string()),
                     },

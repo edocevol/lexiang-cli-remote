@@ -17,6 +17,10 @@
 
 ## 📦 安装
 
+### 从 github release 安装
+
+[🚀最新的下载地址](https://github.com/tencent-lexiang/lexiang-cli/releases)
+
 ### 从源码安装
 
 确保已安装 Rust 1.70 或更高版本：
@@ -409,7 +413,7 @@ RUST_LOG=trace lx search kb --keyword "test"
 
 ```bash
 # 克隆仓库
-git clone https://github.com/your-org/lexiang-cli.git
+git clone https://github.com/tencent-lexiang/lexiang-cli
 cd lexiang-cli
 
 # 构建项目

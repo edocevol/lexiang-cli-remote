@@ -2,12 +2,10 @@ pub mod dynamic;
 pub mod embedded;
 pub mod generator;
 pub mod runtime;
-pub mod skill_generator;
 pub mod types;
 
 pub use generator::{build_tool_args, CommandGenerator};
 pub use runtime::RuntimeSchemaManager;
-pub use skill_generator::SkillGenerator;
 pub use types::*;
 
 use crate::mcp::ToolSchema;
@@ -78,15 +76,6 @@ impl SchemaManager {
     #[allow(dead_code)]
     pub fn get_mcp_tool_schema(&self, name: &str) -> Option<&McpToolSchema> {
         self.collection.as_ref()?.tools.get(name)
-    }
-
-    /// 获取所有 namespace
-    #[allow(dead_code)]
-    pub fn get_namespaces(&self) -> Vec<String> {
-        self.collection
-            .as_ref()
-            .map(types::McpSchemaCollection::get_namespaces)
-            .unwrap_or_default()
     }
 
     /// 获取 namespace 下的所有工具
