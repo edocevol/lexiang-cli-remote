@@ -114,34 +114,28 @@ impl RuntimeSchemaManager {
         let tools = client.list_tools().await?;
         for tool in tools {
             if let Some(existing) = schema.tools.get_mut(&tool.name) {
-                // 更新完整的 input_schema
-                existing.input_schema =
-                    tool.input_schema
-                        .map(|is| crate::mcp::schema::types::McpInputSchema {
-                            type_: is.type_,
-                            properties: is
-                                .properties
-                                .into_iter()
-                                .map(|(k, v)| {
-                                    let prop = serde_json::from_value(v).unwrap_or_else(|_| {
-                                        crate::mcp::schema::types::McpPropertySchema {
-                                            type_: Some("string".to_string()),
-                                            description: None,
-                                            default: None,
-                                            enum_values: None,
-                                            items: None,
-                                        }
-                                    });
-                                    (k, prop)
-                                })
-                                .collect(),
-                            required: is.required,
-                            additional_properties: None,
-                        });
+                let full = crate::mcp::schema::types::McpToolSchema::from_protocol(&tool);
+                existing.input_schema = full.input_schema;
             }
         }
 
-        // 4. 保存到 override
+        // 4. 合并 unlisted tools（编译时嵌入的，不会被 sync 覆盖）
+        let unlisted = super::embedded::load_unlisted_schemas();
+        let unlisted_count = unlisted.len();
+        for (name, tool) in unlisted {
+            schema
+                .tools
+                .entry(name)
+                .or_insert_with(|| crate::mcp::schema::types::McpToolSchema::from_protocol(&tool));
+        }
+        if unlisted_count > 0 {
+            eprintln!(
+                "  Preserved {} unlisted tool(s) from schemas/unlisted.json",
+                unlisted_count
+            );
+        }
+
+        // 5. 保存到 override
         self.save_override(&schema)?;
 
         Ok(schema)

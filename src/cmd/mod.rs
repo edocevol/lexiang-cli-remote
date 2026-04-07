@@ -18,7 +18,10 @@ pub use mcp::{call_tool, list_tools};
 #[allow(unused_imports)]
 pub use sh::{build_shell, exec_command, start_repl};
 pub use skill::{handle_generate, handle_install, handle_status, handle_uninstall, handle_update};
-pub use tools::{handle_categories, handle_list, handle_sync, handle_version};
+pub use tools::{
+    handle_categories, handle_list, handle_sync, handle_sync_embedded, handle_sync_unlisted,
+    handle_version,
+};
 pub use update::{
     auto_check_update, handle_check as handle_update_check, handle_list as handle_update_list,
 };

@@ -131,6 +131,8 @@ async fn main() -> anyhow::Result<()> {
             cmd::ToolsCommands::Categories => cmd::handle_categories()?,
             cmd::ToolsCommands::Version => cmd::handle_version()?,
             cmd::ToolsCommands::List { category } => cmd::handle_list(category.as_deref())?,
+            cmd::ToolsCommands::SyncEmbedded => cmd::handle_sync_embedded(&config).await?,
+            cmd::ToolsCommands::SyncUnlisted => cmd::handle_sync_unlisted(&config).await?,
         },
         Some(Commands::Skill { command: subcmd }) => match subcmd {
             Some(cmd::SkillCommands::Generate { output }) => {

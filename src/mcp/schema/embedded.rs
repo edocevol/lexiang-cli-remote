@@ -1,9 +1,28 @@
-use crate::mcp::schema::types::{extract_command_name, extract_namespace, McpSchemaCollection};
+use crate::mcp::schema::types::{
+    extract_command_name, extract_namespace, McpSchemaCollection, UnlistedSchemaCollection,
+};
 use crate::mcp::ToolSchema;
 use std::collections::HashMap;
 
 /// 编译时嵌入的 schema JSON（源文件位于项目根目录 schemas/lexiang.json）
 const EMBEDDED_SCHEMA_JSON: &str = include_str!("../../../schemas/lexiang.json");
+
+/// 编译时嵌入的 unlisted tools schema（源文件位于 schemas/unlisted.json）
+/// 这些工具不在 tools/list 中返回，但可以通过 tools/call 调用
+const UNLISTED_SCHEMA_JSON: &str = include_str!("../../../schemas/unlisted.json");
+
+/// 加载嵌入的 unlisted tools schema
+pub fn load_unlisted_schemas() -> HashMap<String, ToolSchema> {
+    let mut map = HashMap::new();
+
+    if let Ok(unlisted) = serde_json::from_str::<UnlistedSchemaCollection>(UNLISTED_SCHEMA_JSON) {
+        for (name, tool) in unlisted.tools {
+            map.insert(name, tool.to_protocol());
+        }
+    }
+
+    map
+}
 
 /// 加载嵌入的 schema 到 HashMap（兼容旧接口）
 pub fn load_embedded_schemas() -> HashMap<String, ToolSchema> {
@@ -11,28 +30,13 @@ pub fn load_embedded_schemas() -> HashMap<String, ToolSchema> {
 
     if let Ok(collection) = serde_json::from_str::<McpSchemaCollection>(EMBEDDED_SCHEMA_JSON) {
         for (name, tool) in collection.tools {
-            // 转换 McpToolSchema 到 ToolSchema
-            let input_schema = tool.input_schema.map(|s| {
-                let mut properties = serde_json::Map::new();
-                for (k, v) in s.properties {
-                    properties.insert(k, serde_json::to_value(v).unwrap_or_default());
-                }
-                crate::mcp::InputSchema {
-                    type_: s.type_,
-                    properties,
-                    required: s.required,
-                }
-            });
-
-            map.insert(
-                name.clone(),
-                ToolSchema {
-                    name,
-                    description: tool.description,
-                    input_schema,
-                },
-            );
+            map.insert(name, tool.to_protocol());
         }
+    }
+
+    // 合并 unlisted tools（不覆盖已有的同名 tool）
+    for (name, tool) in load_unlisted_schemas() {
+        map.entry(name).or_insert(tool);
     }
 
     map
@@ -51,6 +55,13 @@ pub fn load_embedded_collection() -> Option<McpSchemaCollection> {
                 tool.namespace = Some(namespace.clone());
                 tool.command_name = Some(extract_command_name(&cat_tool.name, &namespace));
             }
+        }
+    }
+
+    // 合并 unlisted tools 到 collection.tools（仅 schema 查询用，不生成 CLI 命令）
+    if let Ok(unlisted) = serde_json::from_str::<UnlistedSchemaCollection>(UNLISTED_SCHEMA_JSON) {
+        for (name, tool) in unlisted.tools {
+            collection.tools.entry(name).or_insert(tool);
         }
     }
 
