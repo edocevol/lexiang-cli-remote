@@ -91,7 +91,7 @@ export const lexiangOnboardingAdapter: ChannelOnboardingAdapter = {
     const cfg = ctx.cfg as OpenClawConfig;
     const pluginConfig = (cfg.plugins?.entries?.['lexiang-cli']?.config || {}) as LexiangPluginConfig;
 
-    const hasToken = Boolean(pluginConfig.accessToken || process.env.LEFS_ACCESS_TOKEN);
+    const hasToken = Boolean(pluginConfig.accessToken || process.env.LEXIANG_ACCESS_TOKEN);
     const cliAvailable = isLxAvailable();
     const configured = hasToken && cliAvailable;
 
@@ -184,7 +184,7 @@ export const lexiangOnboardingAdapter: ChannelOnboardingAdapter = {
     // Step 2: 配置 Access Token
     // ---------------------------------------------------------------------------
 
-    const envToken = process.env.LEFS_ACCESS_TOKEN?.trim();
+    const envToken = process.env.LEXIANG_ACCESS_TOKEN?.trim();
     const configToken = existingPluginConfig.accessToken?.trim();
     const hasToken = Boolean(envToken || configToken);
 
@@ -197,7 +197,7 @@ export const lexiangOnboardingAdapter: ChannelOnboardingAdapter = {
           '1. 打开 https://lexiang.tencent.com/ai/claw',
           '2. 登录后复制 Access Token',
           '',
-          '你也可以设置环境变量 LEFS_ACCESS_TOKEN',
+          '你也可以设置环境变量 LEXIANG_ACCESS_TOKEN',
         ].join('\n'),
         'Access Token 配置',
       );
@@ -234,7 +234,7 @@ export const lexiangOnboardingAdapter: ChannelOnboardingAdapter = {
       }
     } else if (envToken && !configToken) {
       const useEnv = await prompter.confirm({
-        message: '检测到环境变量 LEFS_ACCESS_TOKEN，是否使用？',
+        message: '检测到环境变量 LEXIANG_ACCESS_TOKEN，是否使用？',
         initialValue: true,
       });
 

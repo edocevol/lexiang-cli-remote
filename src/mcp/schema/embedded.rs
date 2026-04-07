@@ -1,4 +1,4 @@
-use crate::mcp::schema::types::McpSchemaCollection;
+use crate::mcp::schema::types::{extract_command_name, extract_namespace, McpSchemaCollection};
 use crate::mcp::ToolSchema;
 use std::collections::HashMap;
 
@@ -40,5 +40,19 @@ pub fn load_embedded_schemas() -> HashMap<String, ToolSchema> {
 
 /// 加载嵌入的完整 schema collection
 pub fn load_embedded_collection() -> Option<McpSchemaCollection> {
-    serde_json::from_str(EMBEDDED_SCHEMA_JSON).ok()
+    let mut collection: McpSchemaCollection = serde_json::from_str(EMBEDDED_SCHEMA_JSON).ok()?;
+
+    // 反序列化后 namespace 和 command_name 是 None（因为 #[serde(skip)]）
+    // 需要从 categories 重新填充
+    for category in &collection.categories {
+        let namespace = extract_namespace(&category.name);
+        for cat_tool in &category.tools {
+            if let Some(tool) = collection.tools.get_mut(&cat_tool.name) {
+                tool.namespace = Some(namespace.clone());
+                tool.command_name = Some(extract_command_name(&cat_tool.name, &namespace));
+            }
+        }
+    }
+
+    Some(collection)
 }

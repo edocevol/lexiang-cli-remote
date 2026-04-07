@@ -40,6 +40,9 @@ impl SchemaManager {
         let runtime = RuntimeSchemaManager::new();
         if let Ok(Some(collection)) = runtime.load() {
             manager.collection = Some(collection);
+        } else {
+            // Fallback 到 embedded schema
+            manager.collection = embedded::load_embedded_collection();
         }
 
         manager

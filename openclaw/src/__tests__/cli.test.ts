@@ -175,7 +175,7 @@ describe('CLI Module', () => {
         ['search', 'search'],
         expect.objectContaining({
           env: expect.objectContaining({
-            LEFS_ACCESS_TOKEN: 'test-token',
+            LEXIANG_ACCESS_TOKEN: 'test-token',
           }),
         })
       );

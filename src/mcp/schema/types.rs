@@ -133,10 +133,13 @@ impl McpSchemaCollection {
     }
 
     /// 获取 namespace 下的所有工具
+    /// 支持完整 category 名 (如 "ai.ppt") 或 namespace (如 "ppt")
     pub fn get_tools_by_namespace(&self, namespace: &str) -> Vec<&McpToolSchema> {
+        // 如果输入包含点，则先提取 namespace
+        let ns = extract_namespace(namespace);
         self.tools
             .values()
-            .filter(|t| t.namespace.as_deref() == Some(namespace))
+            .filter(|t| t.namespace.as_deref() == Some(&ns))
             .collect()
     }
 }

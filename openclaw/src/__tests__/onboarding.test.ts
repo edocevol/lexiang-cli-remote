@@ -20,7 +20,7 @@ describe('Onboarding Adapter', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset env
-    delete process.env.LEFS_ACCESS_TOKEN;
+    delete process.env.LEXIANG_ACCESS_TOKEN;
   });
 
   describe('getStatus', () => {
@@ -67,7 +67,7 @@ describe('Onboarding Adapter', () => {
 
     it('should detect token from environment variable', async () => {
       vi.mocked(isLxAvailable).mockReturnValue(true);
-      process.env.LEFS_ACCESS_TOKEN = 'env-token';
+      process.env.LEXIANG_ACCESS_TOKEN = 'env-token';
 
       const status = await lexiangOnboardingAdapter.getStatus({
         cfg: {},
@@ -143,7 +143,7 @@ describe('Onboarding Adapter', () => {
         stderr: '',
         exitCode: 0,
       });
-      process.env.LEFS_ACCESS_TOKEN = 'eyJenv-token';
+      process.env.LEXIANG_ACCESS_TOKEN = 'eyJenv-token';
 
       const mockPrompter = {
         note: vi.fn(),

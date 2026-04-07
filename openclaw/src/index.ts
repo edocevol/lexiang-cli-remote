@@ -166,7 +166,7 @@ const plugin = {
     // Token Guard
     // ---------------------------------------------------------------------------
 
-    const hasToken = Boolean(config.accessToken || process.env.LEFS_ACCESS_TOKEN);
+    const hasToken = Boolean(config.accessToken || process.env.LEXIANG_ACCESS_TOKEN);
 
     if (!hasToken) {
       api.on('before_tool_call', (event) => {
@@ -175,7 +175,7 @@ const plugin = {
             block: true,
             blockReason:
               'Access Token 未配置。\n\n' +
-              '请运行 `openclaw onboard` 配置，或设置环境变量 LEFS_ACCESS_TOKEN。\n' +
+              '请运行 `openclaw onboard` 配置，或设置环境变量 LEXIANG_ACCESS_TOKEN。\n' +
               '获取 Token: https://lexiang.tencent.com/ai/claw',
           };
         }

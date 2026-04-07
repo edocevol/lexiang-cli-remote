@@ -325,7 +325,7 @@ mod tests {
             tools: HashMap::new(),
         };
 
-        let temp_dir = std::env::temp_dir().join("lefs-skill-test");
+        let temp_dir = std::env::temp_dir().join("lexiang-skill-test");
         let generator = SkillGenerator::new(&schema, temp_dir.clone());
 
         let readme = generator.generate_readme();

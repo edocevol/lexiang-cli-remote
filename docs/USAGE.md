@@ -91,14 +91,14 @@ lx search kb -d '{"keyword":"test","limit":10,"type":"doc"}'
 
 ```bash
 git clone <repo-url>
-cd packages/cli
+cd lexiang-cli
 cargo install --path .
 ```
 
 ### 验证安装
 
 ```bash
-lx --version
+lx version
 # lx-cli v0.1.0
 ```
 
@@ -722,7 +722,7 @@ lx git push --force            # 强制推送到远端
 lx tools sync
 ```
 
-从 MCP Server 获取最新的工具定义，保存到 `~/.lefs/tools/override.json`。
+从 MCP Server 获取最新的工具定义，保存到 `~/.lexiang/tools/override.json`。
 
 ### 查看工具分类
 
@@ -748,7 +748,7 @@ lx tools version
 为 AI Agent（如 Claude、GPT）生成工具说明文件：
 
 ```bash
-# 生成到默认目录 ~/.lefs/skills/
+# 生成到默认目录 ~/.lexiang/skills/
 lx tools skill
 
 # 生成到指定目录
@@ -831,7 +831,7 @@ RUST_LOG=trace lx search kb --keyword "test"
 
 ### 主配置文件
 
-位置：`~/.lefs/config.json`
+位置：`~/.lexiang/config.json`
 
 ```json
 {
@@ -856,7 +856,7 @@ RUST_LOG=trace lx search kb --keyword "test"
 
 ### Schema 文件
 
-位置：`~/.lefs/tools/override.json`
+位置：`~/.lexiang/tools/override.json`
 
 通过 `lx tools sync` 生成，优先级高于内置 Schema。
 
@@ -887,7 +887,7 @@ cat ~/.lexiang/auth/token.json | jq '.expires_at | todate'
 ### 检查 Schema
 
 ```bash
-cat ~/.lefs/tools/override.json | jq '.tools | keys | length'
+cat ~/.lexiang/tools/override.json | jq '.tools | keys | length'
 # 53 (当前工具数量)
 ```
 

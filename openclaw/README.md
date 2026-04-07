@@ -30,7 +30,7 @@ openclaw onboard
 或设置环境变量：
 
 ```bash
-export LEFS_ACCESS_TOKEN=your_token
+export LEXIANG_ACCESS_TOKEN=your_token
 ```
 
 ## 工具生成

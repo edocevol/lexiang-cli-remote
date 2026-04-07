@@ -333,7 +333,7 @@ async fn register_client(
 ) -> Result<ClientRegistration> {
     let body = serde_json::json!({
         "redirect_uris": [redirect_uri],
-        "client_name": "lefs CLI",
+        "client_name": "Lexiang CLI",
         "grant_types": ["authorization_code", "refresh_token"],
         "response_types": ["code"],
         "scope": oauth_cfg.scopes_supported.join(" "),

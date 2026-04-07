@@ -24,6 +24,11 @@ pub fn load_schema() -> Option<McpSchemaCollection> {
     let runtime = RuntimeSchemaManager::new();
     let mut schema = runtime.load().ok().flatten();
 
+    // 如果运行时 schema 不存在，使用 embedded schema
+    if schema.is_none() {
+        return load_embedded_collection();
+    }
+
     // 运行时 schema 中的 tool 可能缺少 inputSchema（为 null），
     // 用 embedded schema 补充缺失的参数定义
     if let Some(ref mut collection) = schema {

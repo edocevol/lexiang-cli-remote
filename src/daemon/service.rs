@@ -3,7 +3,7 @@ use crate::vfs::VfsManager;
 use anyhow::Result;
 use std::path::PathBuf;
 
-const DAEMON_NAME: &str = "lefs-daemon";
+const DAEMON_NAME: &str = "lexiang-daemon";
 
 pub struct DaemonManager {
     pidfile: PidFile,

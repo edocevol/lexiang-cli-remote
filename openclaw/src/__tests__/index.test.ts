@@ -115,7 +115,7 @@ describe('Plugin Registration', () => {
     vi.mocked(loadCachedSchema).mockResolvedValue(null);
 
     mockApi.pluginConfig = {}; // No token
-    delete process.env.LEFS_ACCESS_TOKEN;
+    delete process.env.LEXIANG_ACCESS_TOKEN;
 
     const plugin = (await import('../index.js')).default;
     await plugin.register(mockApi);

@@ -18,7 +18,7 @@ pub async fn handle_sync(config: &Config) -> Result<()> {
         schema.tools.len(),
         schema.categories.len()
     );
-    println!("Schema saved to ~/.lefs/tools/override.json");
+    println!("Schema saved to ~/.lexiang/tools/override.json");
 
     Ok(())
 }
@@ -65,12 +65,13 @@ pub fn handle_list(category: Option<&str>) -> Result<()> {
             }
         }
     } else {
-        let namespaces = manager.get_namespaces();
-        if namespaces.is_empty() {
-            println!("No namespaces found. Run 'lx tools sync' first.");
+        let categories = manager.get_categories();
+        if categories.is_empty() {
+            println!("No categories found. Run 'lx tools sync' first.");
         } else {
-            println!("Available namespaces: {}", namespaces.join(", "));
-            println!("\nUse 'lx tools list --category <namespace>' to see tools in a namespace.");
+            let names: Vec<_> = categories.iter().map(|c| c.name.as_str()).collect();
+            println!("Available categories: {}", names.join(", "));
+            println!("\nUse 'lx tools list --category <name>' to see tools in a category.");
         }
     }
 

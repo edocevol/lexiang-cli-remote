@@ -18,16 +18,6 @@ use cmd::{Cli, Commands};
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
-    // 检查并执行数据目录迁移
-    if let Some(legacy_dir) = datadir::check_migration_needed() {
-        eprintln!("检测到旧数据目录: {}", legacy_dir.display());
-        eprintln!("正在迁移到: {}", datadir::datadir().display());
-        match datadir::migrate_from_legacy() {
-            Ok(()) => eprintln!("迁移完成"),
-            Err(e) => eprintln!("迁移失败（将继续使用新目录）: {}", e),
-        }
-    }
-
     let args: Vec<String> = std::env::args().collect();
 
     // 加载 schema（用于动态命令）

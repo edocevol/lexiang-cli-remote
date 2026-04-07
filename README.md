@@ -27,10 +27,10 @@ git clone https://github.com/your-org/lexiang-cli.git
 cd lexiang-cli
 
 # 安装
-cargo install --path .
+cargo install --force --path .
 
 # 验证安装
-lx --version
+lx version
 ```
 
 ### 前置要求
@@ -53,6 +53,9 @@ lx login
 ```bash
 # 查看所有命令
 lx --help
+
+# 更新 tool 
+lx tools sync
 
 # 查看团队命令
 lx team --help
@@ -288,7 +291,7 @@ lx completion fish > ~/.config/fish/completions/lx.fish
 
 ### 主配置文件
 
-位置：`~/.lefs/config.json`
+位置：`~/.lexiang/config.json`
 
 ```json
 {
@@ -315,7 +318,7 @@ Token 支持自动刷新。
 
 ### Schema 文件
 
-位置：`~/.lefs/tools/override.json`
+位置：`~/.lexiang/tools/override.json`
 
 通过 `lx tools sync` 生成，优先级高于内置 Schema。
 

@@ -65,8 +65,8 @@ packages/cli/
 优先级：**embedded < override < custom**
 
 1. **embedded** - 编译时嵌入的默认 schema (`src/mcp/schema/embedded_schema.json`)
-2. **override** - 运行时从 MCP Server 同步的 schema (`~/.lefs/tools/override.json`)
-3. **custom** - 用户自定义覆盖 (`~/.lefs/tools/custom.json`)
+2. **override** - 运行时从 MCP Server 同步的 schema (`~/.lexiang/tools/override.json`)
+3. **custom** - 用户自定义覆盖 (`~/.lexiang/tools/custom.json`)
 
 CLI 启动时优先加载 override，如果不存在则使用 embedded，确保用户安装后即可使用，无需先运行 `lx tools sync`。
 
@@ -93,7 +93,7 @@ pub struct McpInputSchema {
 
 ```rust
 pub struct RuntimeSchemaManager {
-    config_dir: PathBuf,  // ~/.lefs/tools/
+    config_dir: PathBuf,  // ~/.lexiang/tools/
 }
 
 impl RuntimeSchemaManager {
@@ -140,7 +140,7 @@ async fn handle_dynamic_command(
 
 ```rust
 impl TokenStore {
-    pub fn save(token: &TokenData) -> Result<()>;  // ~/.lefs/auth/{company}.json
+    pub fn save(token: &TokenData) -> Result<()>;  // ~/.lexiang/auth/{company}.json
     pub fn load(company_from: &str) -> Result<Option<TokenData>>;
     pub async fn get_valid_token(company_from: &str) -> Result<Option<TokenData>>; // 自动 refresh
 }
@@ -177,7 +177,7 @@ MCP Server 添加新分类后：
 lx tools sync
 
 # 2. 复制到源码目录
-cp ~/.lefs/tools/override.json packages/cli/src/mcp/schema/embedded_schema.json
+cp ~/.lexiang/tools/override.json src/mcp/schema/embedded_schema.json
 
 # 3. 重新构建
 cargo build --release
@@ -209,10 +209,10 @@ RUST_LOG=debug cargo run -- team list
 cat ~/.lexiang/auth/token.json
 
 # 查看 schema 文件
-cat ~/.lefs/tools/override.json | jq
+cat ~/.lexiang/tools/override.json | jq
 
 # 查看生成的 skill 文件
-ls ~/.lefs/skills/
+ls ~/.lexiang/skills/
 ```
 
 ## 发布
@@ -230,7 +230,7 @@ cargo build --release
 
 ### Q: 动态命令如何知道有哪些 namespace？
 A: 按以下优先级加载 schema：
-1. 优先从 `~/.lefs/tools/override.json` 加载（如果存在）
+1. 优先从 `~/.lexiang/tools/override.json` 加载（如果存在）
 2. 否则使用编译时嵌入的 `embedded_schema.json`
 
 解析其中的 categories 获取所有 namespace。

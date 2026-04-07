@@ -315,7 +315,7 @@ export async function execLx(
   return new Promise((resolve, reject) => {
     const env = { ...process.env };
     if (options.accessToken) {
-      env.LEFS_ACCESS_TOKEN = options.accessToken;
+      env.LEXIANG_ACCESS_TOKEN = options.accessToken;
     }
 
     const spawnOpts: SpawnOptions = {

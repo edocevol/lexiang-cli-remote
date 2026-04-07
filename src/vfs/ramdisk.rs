@@ -11,9 +11,9 @@ pub struct RamdiskConfig {
 impl Default for RamdiskConfig {
     fn default() -> Self {
         Self {
-            name: "lefs-ramdisk".to_string(),
+            name: "lexiang-ramdisk".to_string(),
             size_mb: 256,
-            mount_point: PathBuf::from("/tmp/lefs"),
+            mount_point: PathBuf::from("/tmp/lexiang"),
         }
     }
 }
