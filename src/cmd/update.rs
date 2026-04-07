@@ -48,12 +48,7 @@ pub async fn handle_list(limit: usize) -> Result<()> {
             ""
         };
 
-        println!(
-            "{}. v{}{}",
-            i + 1,
-            release.latest_version,
-            marker
-        );
+        println!("{}. v{}{}", i + 1, release.latest_version, marker);
         println!("   {}", release.release_url);
 
         if let Some(ref notes) = release.release_notes {

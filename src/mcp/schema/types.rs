@@ -145,6 +145,7 @@ impl McpSchemaCollection {
 }
 
 /// 子命令唯一匹配的结果
+#[allow(dead_code)]
 pub struct ResolvedSubcommand {
     /// 匹配到的 namespace
     pub namespace: String,

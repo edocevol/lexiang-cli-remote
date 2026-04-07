@@ -15,7 +15,9 @@ pub use mcp::{call_tool, list_tools};
 #[allow(unused_imports)]
 pub use sh::{build_shell, exec_command, start_repl};
 pub use tools::{handle_categories, handle_list, handle_skill, handle_sync, handle_version};
-pub use update::{auto_check_update, handle_check as handle_update_check, handle_list as handle_update_list};
+pub use update::{
+    auto_check_update, handle_check as handle_update_check, handle_list as handle_update_list,
+};
 
 use crate::mcp::schema::McpSchemaCollection;
 

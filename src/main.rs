@@ -69,7 +69,11 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Some(Commands::Version) => {
-            println!("{} v{}", env!("CARGO_PKG_NAME"), crate::version::current_version());
+            println!(
+                "{} v{}",
+                env!("CARGO_PKG_NAME"),
+                crate::version::current_version()
+            );
             // 版本命令后自动检查更新
             cmd::auto_check_update().await;
         }
