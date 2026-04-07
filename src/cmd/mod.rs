@@ -1,3 +1,4 @@
+pub mod block;
 pub mod cli;
 pub mod dynamic;
 pub mod git;
@@ -9,13 +10,14 @@ pub mod tools;
 pub mod update;
 pub mod utils;
 
+pub use block::try_handle_block_command;
 pub use cli::{Cli, Commands, McpCommands, SkillCommands, ToolsCommands, UpdateCommands};
 pub use dynamic::{handle_dynamic_command, print_help_with_dynamic_commands};
 pub use git::handle_git_command;
 pub use mcp::{call_tool, list_tools};
 #[allow(unused_imports)]
 pub use sh::{build_shell, exec_command, start_repl};
-pub use skill::{handle_generate, handle_install, handle_status, handle_uninstall};
+pub use skill::{handle_generate, handle_install, handle_status, handle_uninstall, handle_update};
 pub use tools::{handle_categories, handle_list, handle_sync, handle_version};
 pub use update::{
     auto_check_update, handle_check as handle_update_check, handle_list as handle_update_list,

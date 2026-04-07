@@ -38,6 +38,10 @@ lint:
 lint-fix:
     cargo clippy --all-targets --all-features --fix --allow-dirty --allow-staged -- -D warnings
 
+# Markdown lint
+markdown-lint:
+    npx --yes markdownlint-cli2 --fix
+
 # 运行测试
 test:
     cargo test

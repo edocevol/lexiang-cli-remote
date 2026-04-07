@@ -36,8 +36,10 @@ fi
 MD_FILES=$(git ls-files -- '*.md')
 if [ -n "$MD_FILES" ]; then
     if command -v npx >/dev/null 2>&1; then
-        echo "📘 Running markdownlint..."
-        git ls-files -z -- '*.md' | xargs -0 npx --yes markdownlint-cli2
+        echo "📘 Running markdownlint --fix..."
+        git ls-files -z -- '*.md' | xargs -0 npx --yes markdownlint-cli2 --fix
+        # Stage auto-fixed markdown files
+        git ls-files -z -- '*.md' | xargs -0 git add
     else
         echo "⏭️ npx not found, skipping Markdown lint."
     fi

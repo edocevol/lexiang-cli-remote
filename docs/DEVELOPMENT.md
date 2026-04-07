@@ -232,10 +232,21 @@ ls ~/.lexiang/skills/
 ```bash
 # 构建 release
 cargo build --release
+```
 
-# 生成 shell completion
-./target/release/lx completion bash > completions/lx.bash
-./target/release/lx completion zsh > completions/_lx
+## Shell Completion
+
+Completion 脚本由 `lx completion <shell>` 运行时自动生成，无需手工维护：
+
+```bash
+# Bash
+lx completion bash > ~/.bash_completion.d/lx
+
+# Zsh
+lx completion zsh > ~/.zsh/completions/_lx
+
+# Fish
+lx completion fish > ~/.config/fish/completions/lx.fish
 ```
 
 ## 常见问题
