@@ -1,0 +1,597 @@
+    Finished `release` profile [optimized] target(s) in 0.34s
+     Running `target/release/lx completion zsh`
+#compdef lx
+
+autoload -U is-at-least
+
+_lx() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_lx_commands" \
+"*::: :->lx" \
+&& ret=0
+    case $state in
+    (lx)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:lx-command-$line[1]:"
+        case $line[1] in
+            (search)
+_arguments "${_arguments_options[@]}" : \
+'-s+[Space ID to search in]:SPACE_ID:_default' \
+'--space-id=[Space ID to search in]:SPACE_ID:_default' \
+'-o+[Output format]:FORMAT:(json json-pretty table csv yaml)' \
+'--format=[Output format]:FORMAT:(json json-pretty table csv yaml)' \
+'-h[Print help]' \
+'--help[Print help]' \
+':keyword -- Search keyword:_default' \
+&& ret=0
+;;
+(fetch-doc)
+_arguments "${_arguments_options[@]}" : \
+'-o+[Output format]:FORMAT:(json json-pretty table csv yaml)' \
+'--format=[Output format]:FORMAT:(json json-pretty table csv yaml)' \
+'-h[Print help]' \
+'--help[Print help]' \
+':entry_id -- Entry ID or URL:_default' \
+&& ret=0
+;;
+(lexiang)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_lx__lexiang_commands" \
+"*::: :->lexiang" \
+&& ret=0
+
+    case $state in
+    (lexiang)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:lx-lexiang-command-$line[1]:"
+        case $line[1] in
+            (search)
+_arguments "${_arguments_options[@]}" : \
+'-s+[Space ID to search in]:SPACE_ID:_default' \
+'--space-id=[Space ID to search in]:SPACE_ID:_default' \
+'-t+[Team ID to search in]:TEAM_ID:_default' \
+'--team-id=[Team ID to search in]:TEAM_ID:_default' \
+'-T+[Search type filter]:SEARCH_TYPE:_default' \
+'--search-type=[Search type filter]:SEARCH_TYPE:_default' \
+'-l+[Limit results]:LIMIT:_default' \
+'--limit=[Limit results]:LIMIT:_default' \
+'-o+[Output format]:FORMAT:(json json-pretty table csv yaml)' \
+'--format=[Output format]:FORMAT:(json json-pretty table csv yaml)' \
+'--title-only[Search title only]' \
+'-h[Print help]' \
+'--help[Print help]' \
+':keyword -- Search keyword:_default' \
+&& ret=0
+;;
+(fetch-doc)
+_arguments "${_arguments_options[@]}" : \
+'-o+[Output format]:FORMAT:(json json-pretty table csv yaml)' \
+'--format=[Output format]:FORMAT:(json json-pretty table csv yaml)' \
+'-h[Print help]' \
+'--help[Print help]' \
+':entry_id -- Entry ID:_default' \
+&& ret=0
+;;
+(create-doc)
+_arguments "${_arguments_options[@]}" : \
+'-o+[Output format]:FORMAT:(json json-pretty table csv yaml)' \
+'--format=[Output format]:FORMAT:(json json-pretty table csv yaml)' \
+'-h[Print help]' \
+'--help[Print help]' \
+':parent_id -- Parent entry ID:_default' \
+':name -- Document name:_default' \
+':content -- Document content (markdown):_default' \
+&& ret=0
+;;
+(update-doc)
+_arguments "${_arguments_options[@]}" : \
+'-m+[Update mode\: append/prepend/replace]:MODE:_default' \
+'--mode=[Update mode\: append/prepend/replace]:MODE:_default' \
+'-o+[Output format]:FORMAT:(json json-pretty table csv yaml)' \
+'--format=[Output format]:FORMAT:(json json-pretty table csv yaml)' \
+'-h[Print help]' \
+'--help[Print help]' \
+':entry_id -- Entry ID:_default' \
+':content -- Document content:_default' \
+&& ret=0
+;;
+(space)
+_arguments "${_arguments_options[@]}" : \
+'-e+[Entry ID (for list-children)]:ENTRY_ID:_default' \
+'--entry-id=[Entry ID (for list-children)]:ENTRY_ID:_default' \
+'-o+[Output format]:FORMAT:(json json-pretty table csv yaml)' \
+'--format=[Output format]:FORMAT:(json json-pretty table csv yaml)' \
+'-h[Print help]' \
+'--help[Print help]' \
+':action -- Action\: list-children/list-spaces:_default' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_lx__lexiang__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:lx-lexiang-help-command-$line[1]:"
+        case $line[1] in
+            (search)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(fetch-doc)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(create-doc)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(update-doc)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(space)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(mcp)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+":: :_lx__mcp_commands" \
+"*::: :->mcp" \
+&& ret=0
+
+    case $state in
+    (mcp)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:lx-mcp-command-$line[1]:"
+        case $line[1] in
+            (list)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(call)
+_arguments "${_arguments_options[@]}" : \
+'-p+[Parameters as JSON]:PARAMS:_default' \
+'--params=[Parameters as JSON]:PARAMS:_default' \
+'-h[Print help]' \
+'--help[Print help]' \
+':name -- Tool name:_default' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_lx__mcp__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:lx-mcp-help-command-$line[1]:"
+        case $line[1] in
+            (list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(call)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+;;
+(completion)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+':shell -- Shell type (bash, zsh, fish, powershell, elvish):(bash elvish fish powershell zsh)' \
+&& ret=0
+;;
+(version)
+_arguments "${_arguments_options[@]}" : \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+":: :_lx__help_commands" \
+"*::: :->help" \
+&& ret=0
+
+    case $state in
+    (help)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:lx-help-command-$line[1]:"
+        case $line[1] in
+            (search)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(fetch-doc)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(lexiang)
+_arguments "${_arguments_options[@]}" : \
+":: :_lx__help__lexiang_commands" \
+"*::: :->lexiang" \
+&& ret=0
+
+    case $state in
+    (lexiang)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:lx-help-lexiang-command-$line[1]:"
+        case $line[1] in
+            (search)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(fetch-doc)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(create-doc)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(update-doc)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(space)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(mcp)
+_arguments "${_arguments_options[@]}" : \
+":: :_lx__help__mcp_commands" \
+"*::: :->mcp" \
+&& ret=0
+
+    case $state in
+    (mcp)
+        words=($line[1] "${words[@]}")
+        (( CURRENT += 1 ))
+        curcontext="${curcontext%:*:*}:lx-help-mcp-command-$line[1]:"
+        case $line[1] in
+            (list)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(call)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+(completion)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(version)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(help)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+        esac
+    ;;
+esac
+;;
+        esac
+    ;;
+esac
+}
+
+(( $+functions[_lx_commands] )) ||
+_lx_commands() {
+    local commands; commands=(
+'search:Search in knowledge base (shortcut for '\''lexiang search'\'')' \
+'fetch-doc:Fetch a document (shortcut for '\''lexiang fetch-doc'\'')' \
+'lexiang:Lexiang namespace commands' \
+'mcp:MCP operations' \
+'completion:Generate shell completion script' \
+'version:Print version' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'lx commands' commands "$@"
+}
+(( $+functions[_lx__completion_commands] )) ||
+_lx__completion_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx completion commands' commands "$@"
+}
+(( $+functions[_lx__fetch-doc_commands] )) ||
+_lx__fetch-doc_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx fetch-doc commands' commands "$@"
+}
+(( $+functions[_lx__help_commands] )) ||
+_lx__help_commands() {
+    local commands; commands=(
+'search:Search in knowledge base (shortcut for '\''lexiang search'\'')' \
+'fetch-doc:Fetch a document (shortcut for '\''lexiang fetch-doc'\'')' \
+'lexiang:Lexiang namespace commands' \
+'mcp:MCP operations' \
+'completion:Generate shell completion script' \
+'version:Print version' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'lx help commands' commands "$@"
+}
+(( $+functions[_lx__help__completion_commands] )) ||
+_lx__help__completion_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx help completion commands' commands "$@"
+}
+(( $+functions[_lx__help__fetch-doc_commands] )) ||
+_lx__help__fetch-doc_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx help fetch-doc commands' commands "$@"
+}
+(( $+functions[_lx__help__help_commands] )) ||
+_lx__help__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx help help commands' commands "$@"
+}
+(( $+functions[_lx__help__lexiang_commands] )) ||
+_lx__help__lexiang_commands() {
+    local commands; commands=(
+'search:Search in knowledge base' \
+'fetch-doc:Fetch a document' \
+'create-doc:Create a new document' \
+'update-doc:Update an existing document' \
+'space:Browse space/directory' \
+    )
+    _describe -t commands 'lx help lexiang commands' commands "$@"
+}
+(( $+functions[_lx__help__lexiang__create-doc_commands] )) ||
+_lx__help__lexiang__create-doc_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx help lexiang create-doc commands' commands "$@"
+}
+(( $+functions[_lx__help__lexiang__fetch-doc_commands] )) ||
+_lx__help__lexiang__fetch-doc_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx help lexiang fetch-doc commands' commands "$@"
+}
+(( $+functions[_lx__help__lexiang__search_commands] )) ||
+_lx__help__lexiang__search_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx help lexiang search commands' commands "$@"
+}
+(( $+functions[_lx__help__lexiang__space_commands] )) ||
+_lx__help__lexiang__space_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx help lexiang space commands' commands "$@"
+}
+(( $+functions[_lx__help__lexiang__update-doc_commands] )) ||
+_lx__help__lexiang__update-doc_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx help lexiang update-doc commands' commands "$@"
+}
+(( $+functions[_lx__help__mcp_commands] )) ||
+_lx__help__mcp_commands() {
+    local commands; commands=(
+'list:List all available tools' \
+'call:Call a tool' \
+    )
+    _describe -t commands 'lx help mcp commands' commands "$@"
+}
+(( $+functions[_lx__help__mcp__call_commands] )) ||
+_lx__help__mcp__call_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx help mcp call commands' commands "$@"
+}
+(( $+functions[_lx__help__mcp__list_commands] )) ||
+_lx__help__mcp__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx help mcp list commands' commands "$@"
+}
+(( $+functions[_lx__help__search_commands] )) ||
+_lx__help__search_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx help search commands' commands "$@"
+}
+(( $+functions[_lx__help__version_commands] )) ||
+_lx__help__version_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx help version commands' commands "$@"
+}
+(( $+functions[_lx__lexiang_commands] )) ||
+_lx__lexiang_commands() {
+    local commands; commands=(
+'search:Search in knowledge base' \
+'fetch-doc:Fetch a document' \
+'create-doc:Create a new document' \
+'update-doc:Update an existing document' \
+'space:Browse space/directory' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'lx lexiang commands' commands "$@"
+}
+(( $+functions[_lx__lexiang__create-doc_commands] )) ||
+_lx__lexiang__create-doc_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx lexiang create-doc commands' commands "$@"
+}
+(( $+functions[_lx__lexiang__fetch-doc_commands] )) ||
+_lx__lexiang__fetch-doc_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx lexiang fetch-doc commands' commands "$@"
+}
+(( $+functions[_lx__lexiang__help_commands] )) ||
+_lx__lexiang__help_commands() {
+    local commands; commands=(
+'search:Search in knowledge base' \
+'fetch-doc:Fetch a document' \
+'create-doc:Create a new document' \
+'update-doc:Update an existing document' \
+'space:Browse space/directory' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'lx lexiang help commands' commands "$@"
+}
+(( $+functions[_lx__lexiang__help__create-doc_commands] )) ||
+_lx__lexiang__help__create-doc_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx lexiang help create-doc commands' commands "$@"
+}
+(( $+functions[_lx__lexiang__help__fetch-doc_commands] )) ||
+_lx__lexiang__help__fetch-doc_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx lexiang help fetch-doc commands' commands "$@"
+}
+(( $+functions[_lx__lexiang__help__help_commands] )) ||
+_lx__lexiang__help__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx lexiang help help commands' commands "$@"
+}
+(( $+functions[_lx__lexiang__help__search_commands] )) ||
+_lx__lexiang__help__search_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx lexiang help search commands' commands "$@"
+}
+(( $+functions[_lx__lexiang__help__space_commands] )) ||
+_lx__lexiang__help__space_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx lexiang help space commands' commands "$@"
+}
+(( $+functions[_lx__lexiang__help__update-doc_commands] )) ||
+_lx__lexiang__help__update-doc_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx lexiang help update-doc commands' commands "$@"
+}
+(( $+functions[_lx__lexiang__search_commands] )) ||
+_lx__lexiang__search_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx lexiang search commands' commands "$@"
+}
+(( $+functions[_lx__lexiang__space_commands] )) ||
+_lx__lexiang__space_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx lexiang space commands' commands "$@"
+}
+(( $+functions[_lx__lexiang__update-doc_commands] )) ||
+_lx__lexiang__update-doc_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx lexiang update-doc commands' commands "$@"
+}
+(( $+functions[_lx__mcp_commands] )) ||
+_lx__mcp_commands() {
+    local commands; commands=(
+'list:List all available tools' \
+'call:Call a tool' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'lx mcp commands' commands "$@"
+}
+(( $+functions[_lx__mcp__call_commands] )) ||
+_lx__mcp__call_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx mcp call commands' commands "$@"
+}
+(( $+functions[_lx__mcp__help_commands] )) ||
+_lx__mcp__help_commands() {
+    local commands; commands=(
+'list:List all available tools' \
+'call:Call a tool' \
+'help:Print this message or the help of the given subcommand(s)' \
+    )
+    _describe -t commands 'lx mcp help commands' commands "$@"
+}
+(( $+functions[_lx__mcp__help__call_commands] )) ||
+_lx__mcp__help__call_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx mcp help call commands' commands "$@"
+}
+(( $+functions[_lx__mcp__help__help_commands] )) ||
+_lx__mcp__help__help_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx mcp help help commands' commands "$@"
+}
+(( $+functions[_lx__mcp__help__list_commands] )) ||
+_lx__mcp__help__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx mcp help list commands' commands "$@"
+}
+(( $+functions[_lx__mcp__list_commands] )) ||
+_lx__mcp__list_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx mcp list commands' commands "$@"
+}
+(( $+functions[_lx__search_commands] )) ||
+_lx__search_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx search commands' commands "$@"
+}
+(( $+functions[_lx__version_commands] )) ||
+_lx__version_commands() {
+    local commands; commands=()
+    _describe -t commands 'lx version commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_lx" ]; then
+    _lx "$@"
+else
+    compdef _lx lx
+fi

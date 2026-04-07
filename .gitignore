@@ -1,0 +1,31 @@
+# Rust
+target
+*.rs.bk
+Cargo.lock.bak
+
+# Node.js (openclaw/)
+node_modules/
+dist/
+*.tsbuildinfo
+.eslintcache
+
+# IDE
+.idea/
+.vscode/
+.codebuddy/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
