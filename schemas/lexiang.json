@@ -1,3 +1,1324 @@
 {
-  "tools": []
+  "version": "2026-04-01T10:55:46.172914+00:00",
+  "categories": [
+    {
+      "name": "ai.ppt",
+      "description": "PPT服务相关接口",
+      "tool_count": 6,
+      "tools": [
+        {
+          "name": "add_ppt_pages",
+          "description": "在 PPT 中添加新页面\n参数:\n- title: PPT 标题\n- pages: 要添加的页面列表，每项包含:\n  - insert_after: 在哪一页之后插入（0 表示插入到最前面）\n  - title: 页面标题\n  - subtitle: 页面副标题\n  - key_points: 页面要点内容\n  - slide_type: 页面类型（cover/content/ending）\n返回:\n- edit_result: 包含 preview_url(预览链接)、title(标题)、instruction(给LLM的指令)、created_at(创建时间)\n- added_pages: 新添加的页面索引列表\n- total_pages: 当前总页数\n- message: 结果消息\n"
+        },
+        {
+          "name": "delete_ppt_pages",
+          "description": "删除 PPT 中的指定页面\n参数:\n- title: PPT 标题\n- page_indexes: 要删除的页面索引列表（从 1 开始）\n返回:\n- edit_result: 包含 preview_url(预览链接)、title(标题)、instruction(给LLM的指令)、created_at(创建时间)\n- deleted_pages: 已成功删除的页面索引列表\n- total_pages: 剩余总页数\n- message: 结果消息\n"
+        },
+        {
+          "name": "generate_ppt",
+          "description": "创建 PPT 生成任务，返回任务 ID\n参数:\n- planning: 生成 PPT 的规划，比如：页数、标题、风格等\n- context: 生成 PPT 所需的参考内容。仅当未执行过 deep_research 或其 report_url 为空时传入\n- deep_research_report_url: 深度研究报告的 COS URL\n- use_template: PPT 模板类型，如 tencent_cloud_template 或 default\n返回:\n- id: 任务唯一标识\n- status: 任务状态\n- message: 状态进度消息\n"
+        },
+        {
+          "name": "get_ppt_task",
+          "description": "查询 PPT 生成任务执行结果\n参数:\n- id: 任务唯一标识，由 GeneratePPT 返回\n返回:\n- id: PPT 唯一标识\n- status: 任务状态\n- message: 状态进度消息\n- result: 包含 title(标题)、preview_url(预览地址)、outline(大纲)、instruction(指导)、created_at(创建时间)\n"
+        },
+        {
+          "name": "modify_ppt_pages",
+          "description": "修改 PPT 指定页面内容\n参数:\n- title: PPT 标题\n- pages: 要修改的页面列表，每项包含:\n  - page_index: 页面索引（从 1 开始）\n  - modification: 修改指令，描述如何修改该页面\n返回:\n- edit_result: 包含 preview_url(预览链接)、title(标题)、instruction(给LLM的指令)、created_at(创建时间)\n- modified_pages: 已成功修改的页面索引列表\n- message: 结果消息\n"
+        },
+        {
+          "name": "reorder_ppt_pages",
+          "description": "调整 PPT 页面顺序\n参数:\n- title: PPT 标题\n- new_order: 新的页面顺序，数组中每个元素是原来的页面索引\n  例如 [3, 1, 2] 表示将原来的第 3 页放到第 1 位，原来的第 1 页放到第 2 位，原来的第 2 页放到第 3 位\n返回:\n- edit_result: 包含 preview_url(预览链接)、title(标题)、instruction(给LLM的指令)、created_at(创建时间)\n- new_order: 实际生效的新页面顺序\n- total_pages: 总页数\n- message: 结果消息\n"
+        }
+      ]
+    },
+    {
+      "name": "connector.meeting",
+      "description": "腾讯会议",
+      "tool_count": 5,
+      "tools": [
+        {
+          "name": "tx_meeting_describe_tx_meeting_record",
+          "description": "Call lexiang.api.connector.TxMeetingService.DescribeTxMeetingRecord"
+        },
+        {
+          "name": "tx_meeting_import_tx_meeting_record",
+          "description": "导入腾讯会议录制请求，需要提供parent_entry_id，如果用户提供的是知识链接，需要解析出parent_entry_id\nstart_time和end_time可以适当地比 TxMeetingRecord 中得到的 start_time 和 end_time 提前或延后一些，以确保录制内容的完整性\n"
+        },
+        {
+          "name": "tx_meeting_list_tx_meeting_records",
+          "description": "待废弃，使用更通用的 SearchTxMeetingRecords"
+        },
+        {
+          "name": "tx_meeting_reload_tx_meeting_record",
+          "description": "重新导入腾讯会议录制记录"
+        },
+        {
+          "name": "tx_meeting_search_tx_meeting_records",
+          "description": "根据腾讯会议号搜索单个会议录制记录，用于用户手动导入腾讯会议记录 如果用户输入的是腾讯会议的接入链接，需要先解析出腾讯会议号"
+        }
+      ]
+    },
+    {
+      "name": "contact",
+      "description": "contact",
+      "tool_count": 2,
+      "tools": [
+        {
+          "name": "search_staff",
+          "description": "MCP 搜索员工信息的工具， 如果企业没有开启通讯录可见，则接口会报错"
+        },
+        {
+          "name": "whoami",
+          "description": "MCP 获取当前员工的身份信息的工具"
+        }
+      ]
+    },
+    {
+      "name": "knowledge.block",
+      "description": "在线文档接口",
+      "tool_count": 10,
+      "tools": [
+        {
+          "name": "block_apply_block_attachment_upload",
+          "description": "申请块附件上传凭证 返回上传会话ID和预签名上传地址，用于在 CreateBlockDescendant 时通过 session_id 字段自动创建文件记录 典型用法： 1. 调用本接口获取 session_id 和 upload_url 2. 使用 curl 或 HTTP PUT 将文件上传到 upload_url 示例：curl -X PUT \"{upload_url}\" --data-binary @/path/to/file 3. 调用 CreateBlockDescendant，在 attachment/image block 的 session_id 字段传入 session_id 注意：暂不支持视频（VOD）上传，video block 请使用 file_id 字段"
+        },
+        {
+          "name": "block_convert_content_to_blocks",
+          "description": "将 HTML 或 Markdown 内容转换为块结构 纯转换接口，不创建任何页面或块，仅返回与 CreateBlockDescendant 兼容的块结构 典型用法：先调用此接口将内容转换为块结构，再将返回的 descendant 传入 CreateBlockDescendant 创建块"
+        },
+        {
+          "name": "block_create_block_descendant",
+          "description": "在指定块下创建子孙节点 支持批量创建多级嵌套的子块结构，可指定插入位置 注意：当内容较大时（如长文档或大量块），建议分批调用此接口进行插入"
+        },
+        {
+          "name": "block_delete_block",
+          "description": "删除指定的块 删除块时会同时删除其所有子孙节点"
+        },
+        {
+          "name": "block_delete_block_children",
+          "description": "批量删除指定块的直接子块 仅删除指定的子块列表，不影响其他子块"
+        },
+        {
+          "name": "block_describe_block",
+          "description": "获取指定块的详细信息 返回块的基本信息和内容，不包含嵌套的子块结构"
+        },
+        {
+          "name": "block_list_block_children",
+          "description": "列出指定块的子节点 支持递归获取所有子孙节点，或仅获取直接子节点"
+        },
+        {
+          "name": "block_move_blocks",
+          "description": "批量移动块到新位置 将多个块移动到同一个父节点下，支持在同一父节点内调整顺序，或移动到不同的父节点 注意： - 所有块只能移动到同一个目标父节点，不支持分别移动到不同父节点 - 目标父节点不能是叶子节点类型（不支持 children 的块类型），包括： h1, h2, h3, h4, h5（标题块）、code（代码块）、image（图片块）、 attachment（附件块）、video（视频块）、divider（分割线）、 mermaid（Mermaid图表块）、plantuml（PlantUML图表块）"
+        },
+        {
+          "name": "block_update_block",
+          "description": "更新指定块的内容或样式 支持更新文本内容、文本样式、任务状态、表格行列等多种更新操作"
+        },
+        {
+          "name": "block_update_blocks",
+          "description": "批量更新多个块 支持在单次请求中对多个块执行不同类型的更新操作，每个块的更新操作相互独立 注意：每个块在单次请求中只能执行一种更新操作，如需同时更新文本和样式请使用 UpdateText"
+        }
+      ]
+    },
+    {
+      "name": "knowledge.comment",
+      "description": "知识评论查询接口",
+      "tool_count": 2,
+      "tools": [
+        {
+          "name": "comment_describe_comment",
+          "description": "获取知识评论详情\n- target_type: 评论类型,目前支持 \"kb_entry\" (页面)\n- target_id: 页面id\n返回comment列表，content不是普通的HTML，注意解析\n"
+        },
+        {
+          "name": "comment_list_comments",
+          "description": "获取知识评论列表\n- target_type: 评论类型,目前支持 \"kb_entry\" (页面)\n- target_id: 页面id\n"
+        }
+      ]
+    },
+    {
+      "name": "knowledge.entry",
+      "description": "知识增删改查接口",
+      "tool_count": 10,
+      "tools": [
+        {
+          "name": "entry_create_entry",
+          "description": "创建知识条目，支持创建页面(page)、文件夹(folder)。\n- entry_type: 条目类型（必填），目前支持 \"page\"（页面）或 \"folder\"（文件夹）\n- parent_entry_id: 父节点ID，可使用知识库的 root_entry_id 创建一级条目\n- name: 条目名称\n- after: 位置，创建到指定条目之后，如果为空则移动到第一个位置\n返回 entry 对象，其中 entry.id 可用于构建访问链接: {domain}/pages/{entry_id}\n"
+        },
+        {
+          "name": "entry_describe_ai_parse_content",
+          "description": "获取知识条目的AI可解析内容，返回 HTML、OCR识别文本、markdown 等格式，用于AI理解和处理"
+        },
+        {
+          "name": "entry_describe_entry",
+          "description": "获取知识条目详情。entry_id 为条目ID（可从页面链接 {domain}/pages/{entry_id} 中提取）。\n关键字段：entry_type（类型：page/folder/file）、target_id（关联资源ID，file 类型时即为 file_id，可用于 apply_upload 更新文件）、name（名称）、space_id（所属知识库）、has_children（是否有子节点）。\n条目访问链接：{domain}/pages/{entry_id}\n"
+        },
+        {
+          "name": "entry_import_content",
+          "description": "导入内容创建知识，支持 markdown/html 格式，优先使用在线文档编辑接口。\n如果用户强调了使用 block tool，不允许使用这个 tool 进行偷懒。\n若目标页面已存在，必须优先使用 update_block/update_blocks 或 create_block_descendant 进行局部更新，以保持文档块结构的完整性。批量修改时推荐使用 update_blocks 提高效率。\n返回 entry 对象，其中 entry.id 可用于构建访问链接: {domain}/pages/{entry_id}。\n"
+        },
+        {
+          "name": "entry_import_content_to_entry",
+          "description": "导入内容到已存在的页面，支持 markdown/html 格式，优先使用在线文档编辑接口。\n如果用户强调了使用 block tool，不允许使用这个 tool 进行偷懒。\n必须优先使用 update_block/update_blocks 或 create_block_descendant 进行局部更新，以保持文档块结构的完整性。批量修改时推荐使用 update_blocks 提高效率。\nforce_write=true 时会清空页面原有内容后覆盖写入，force_write=false 时追加到页面末尾或指定位置。\n⚠️ after_block_id 只能是页面第一层（根级别）的 block ID，不能是嵌套在其他 block 内部的子 block。\n"
+        },
+        {
+          "name": "entry_list_children",
+          "description": "获取指定节点的子条目列表。parent_id 为父节点ID，若要获取知识库一级目录，请先调用 DescribeSpace 获取 root_entry_id，再传入作为 parent_id。返回 entries 数组，每个条目包含 has_children 字段表示是否有子节点，entry_type 区分类型(page/folder/file)"
+        },
+        {
+          "name": "entry_list_latest_entries",
+          "description": "获取知识库中最近更新的条目列表。space_id 为知识库ID"
+        },
+        {
+          "name": "entry_list_parents",
+          "description": "获取条目的所有父级节点（面包屑路径）。entry_id 为条目ID，返回从根到当前节点的路径"
+        },
+        {
+          "name": "entry_move_entry",
+          "description": "移动知识条目到新位置。"
+        },
+        {
+          "name": "entry_rename_entry",
+          "description": "重命名知识条目。entry_id 为条目ID，name 为新名称"
+        }
+      ]
+    },
+    {
+      "name": "knowledge.file",
+      "description": "知识文件接口",
+      "tool_count": 5,
+      "tools": [
+        {
+          "name": "file_apply_upload",
+          "description": "【上传文件第1步】申请文件上传凭证。返回 session_id 和上传地址。支持新建文件和更新已有文件两种场景。\n\n⚠️ 完整上传流程（3步，缺一不可）：\n1. 调用 apply_upload 获取 session.upload_url\n2. 【必须】使用 HTTP PUT 请求将文件内容上传到 session.upload_url（非 MCP 调用）\n3. 调用 commit_upload 确认上传完成\n\n📋 重要参数说明（新建 vs 更新）：\n\n**场景1：新建文件**\n- file_id: 留空（不传）\n- parent_entry_id: 填写父节点的 entry_id（文件将创建在这个父节点下）\n\n**场景2：更新已有文件（重新上传）**\n- file_id: 【必填】要更新的文件ID，可通过 describe_entry 获取条目详情，返回的 target_id 即为 file_id\n- parent_entry_id: 【必填】填写当前文件条目自己的 entry_id（不是父节点！）\n\n**通用参数：**\n- upload_type: 固定为 PRE_SIGNED_URL\n"
+        },
+        {
+          "name": "file_commit_upload",
+          "description": "【上传文件第3步】确认文件上传完成。\n\n⚠️ 前置条件：必须先完成第1步(apply_upload)和第2步(HTTP PUT上传文件内容到upload_url)\n\n参数说明:\n- session_id: ApplyUpload 返回的会话ID\n\n完成后文件条目才会正式创建。返回 entry 对象，其中 entry.id 可用于构建访问链接: {domain}/pages/{entry_id}\n"
+        },
+        {
+          "name": "file_create_hyperlink",
+          "description": "导入外部链接（如微信公众号文章）到知识库。url 为文章链接，space_id 为目标知识库，parent_entry_id 为父节点"
+        },
+        {
+          "name": "file_describe_file",
+          "description": "获取文件详情。file_id 为文件ID，返回文件元信息"
+        },
+        {
+          "name": "file_download_file",
+          "description": "获取文件下载地址。file_id 为文件ID，返回临时下载URL"
+        }
+      ]
+    },
+    {
+      "name": "knowledge.search",
+      "description": "search",
+      "tool_count": 2,
+      "tools": [
+        {
+          "name": "search_kb_embedding_search",
+          "description": "对知识进行向量检索，可以用于内容召回场景，如非需要使用向量检索的场景，可以使用普通搜索"
+        },
+        {
+          "name": "search_kb_search",
+          "description": "知识库搜索。keyword 为关键词，type 支持space/kb_doc/doc/team/all 等类型"
+        }
+      ]
+    },
+    {
+      "name": "knowledge.space",
+      "description": "知识库接口",
+      "tool_count": 3,
+      "tools": [
+        {
+          "name": "space_describe_space",
+          "description": "获取知识库详情。space_id 为知识库ID，返回知识库基本信息。关键返回字段: root_entry_id（根节点ID，用于 ListChildren 获取一级目录）、team_id（所属团队）、name（知识库名称）。知识库访问链接: {domain}/spaces/{space_id}"
+        },
+        {
+          "name": "space_list_recently_spaces",
+          "description": "获取用户最近访问的知识库列表"
+        },
+        {
+          "name": "space_list_spaces",
+          "description": "获取团队下的知识库列表。team_id 为必填参数（需先通过 ListTeams 获取团队ID），可选 permission 参数过滤有特定权限的知识库。返回 spaces 数组，每个包含 id、name、root_entry_id 等字段"
+        }
+      ]
+    },
+    {
+      "name": "teamspace.team",
+      "description": "团队接口",
+      "tool_count": 3,
+      "tools": [
+        {
+          "name": "team_describe_team",
+          "description": "获取团队详情。team_id 为团队ID，返回团队基本信息。团队首页链接: {domain}/t/{team_id}/spaces"
+        },
+        {
+          "name": "team_list_frequent_teams",
+          "description": "获取用户常用团队列表。返回 teams 数组，每个包含 id、name 等字段"
+        },
+        {
+          "name": "team_list_teams",
+          "description": "获取当前用户可访问的团队列表。这是获取知识库的第一步，因为知识库(Space)必须属于某个团队(Team)。可选 permission 参数过滤有特定权限的团队。返回 teams 数组，每个包含 id、name 等字段"
+        }
+      ]
+    }
+  ],
+  "tools": {
+    "search_staff": {
+      "name": "search_staff",
+      "description": "MCP 搜索员工信息的工具， 如果企业没有开启通讯录可见，则接口会报错",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "description": "搜索关键词"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "限制返回结果数",
+            "default": 10
+          }
+        },
+        "required": [
+          "keyword"
+        ]
+      }
+    },
+    "get_ppt_task": {
+      "name": "get_ppt_task",
+      "description": "查询 PPT 生成任务执行结果\n参数:\n- id: 任务唯一标识，由 GeneratePPT 返回\n返回:\n- id: PPT 唯一标识\n- status: 任务状态\n- message: 状态进度消息\n- result: 包含 title(标题)、preview_url(预览地址)、outline(大纲)、instruction(指导)、created_at(创建时间)\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "任务唯一标识"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    "entry_import_content": {
+      "name": "entry_import_content",
+      "description": "导入内容创建知识，支持 markdown/html 格式，优先使用在线文档编辑接口。\n如果用户强调了使用 block tool，不允许使用这个 tool 进行偷懒。\n若目标页面已存在，必须优先使用 update_block/update_blocks 或 create_block_descendant 进行局部更新，以保持文档块结构的完整性。批量修改时推荐使用 update_blocks 提高效率。\n返回 entry 对象，其中 entry.id 可用于构建访问链接: {domain}/pages/{entry_id}。\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "parent_id": {
+            "type": "string",
+            "description": "父节点 entry ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "条目名称"
+          },
+          "content": {
+            "type": "string",
+            "description": "内容（markdown/html）"
+          }
+        },
+        "required": [
+          "parent_id",
+          "name",
+          "content"
+        ]
+      }
+    },
+    "file_commit_upload": {
+      "name": "file_commit_upload",
+      "description": "【上传文件第3步】确认文件上传完成。\n\n⚠️ 前置条件：必须先完成第1步(apply_upload)和第2步(HTTP PUT上传文件内容到upload_url)\n\n参数说明:\n- session_id: ApplyUpload 返回的会话ID\n\n完成后文件条目才会正式创建。返回 entry 对象，其中 entry.id 可用于构建访问链接: {domain}/pages/{entry_id}\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "description": "上传会话 ID"
+          }
+        },
+        "required": [
+          "session_id"
+        ]
+      }
+    },
+    "block_update_block": {
+      "name": "block_update_block",
+      "description": "更新指定块的内容或样式 支持更新文本内容、文本样式、任务状态、表格行列等多种更新操作",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "description": "块 ID"
+          },
+          "content": {
+            "type": "object",
+            "description": "块内容"
+          }
+        },
+        "required": [
+          "block_id",
+          "content"
+        ]
+      }
+    },
+    "file_describe_file": {
+      "name": "file_describe_file",
+      "description": "获取文件详情。file_id 为文件ID，返回文件元信息",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "文件 ID"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    "entry_rename_entry": {
+      "name": "entry_rename_entry",
+      "description": "重命名知识条目。entry_id 为条目ID，name 为新名称",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entry_id": {
+            "type": "string",
+            "description": "条目 entry ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "新名称"
+          }
+        },
+        "required": [
+          "entry_id",
+          "name"
+        ]
+      }
+    },
+    "file_download_file": {
+      "name": "file_download_file",
+      "description": "获取文件下载地址。file_id 为文件ID，返回临时下载URL",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "文件 ID"
+          }
+        },
+        "required": [
+          "file_id"
+        ]
+      }
+    },
+    "entry_move_entry": {
+      "name": "entry_move_entry",
+      "description": "移动知识条目到新位置。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entry_id": {
+            "type": "string",
+            "description": "条目 entry ID"
+          },
+          "parent_entry_id": {
+            "type": "string",
+            "description": "目标父节点 entry ID"
+          },
+          "after": {
+            "type": "string",
+            "description": "插入到指定条目之后，可选"
+          }
+        },
+        "required": [
+          "entry_id",
+          "parent_entry_id"
+        ]
+      }
+    },
+    "tx_meeting_reload_tx_meeting_record": {
+      "name": "tx_meeting_reload_tx_meeting_record",
+      "description": "重新导入腾讯会议录制记录",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "description": "录制记录 ID"
+          }
+        },
+        "required": [
+          "record_id"
+        ]
+      }
+    },
+    "entry_describe_ai_parse_content": {
+      "name": "entry_describe_ai_parse_content",
+      "description": "获取知识条目的AI可解析内容，返回 HTML、OCR识别文本、markdown 等格式，用于AI理解和处理",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entry_id": {
+            "type": "string",
+            "description": "条目 entry ID"
+          }
+        },
+        "required": [
+          "entry_id"
+        ]
+      }
+    },
+    "tx_meeting_search_tx_meeting_records": {
+      "name": "tx_meeting_search_tx_meeting_records",
+      "description": "根据腾讯会议号搜索单个会议录制记录，用于用户手动导入腾讯会议记录 如果用户输入的是腾讯会议的接入链接，需要先解析出腾讯会议号",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "腾讯会议号"
+          }
+        },
+        "required": [
+          "meeting_id"
+        ]
+      }
+    },
+    "block_apply_block_attachment_upload": {
+      "name": "block_apply_block_attachment_upload",
+      "description": "申请块附件上传凭证 返回上传会话ID和预签名上传地址，用于在 CreateBlockDescendant 时通过 session_id 字段自动创建文件记录 典型用法： 1. 调用本接口获取 session_id 和 upload_url 2. 使用 curl 或 HTTP PUT 将文件上传到 upload_url 示例：curl -X PUT \"{upload_url}\" --data-binary @/path/to/file 3. 调用 CreateBlockDescendant，在 attachment/image block 的 session_id 字段传入 session_id 注意：暂不支持视频（VOD）上传，video block 请使用 file_id 字段",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "description": "块 ID"
+          },
+          "file_name": {
+            "type": "string",
+            "description": "文件名"
+          }
+        },
+        "required": [
+          "block_id",
+          "file_name"
+        ]
+      }
+    },
+    "modify_ppt_pages": {
+      "name": "modify_ppt_pages",
+      "description": "修改 PPT 指定页面内容\n参数:\n- title: PPT 标题\n- pages: 要修改的页面列表，每项包含:\n  - page_index: 页面索引（从 1 开始）\n  - modification: 修改指令，描述如何修改该页面\n返回:\n- edit_result: 包含 preview_url(预览链接)、title(标题)、instruction(给LLM的指令)、created_at(创建时间)\n- modified_pages: 已成功修改的页面索引列表\n- message: 结果消息\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "PPT 标题"
+          },
+          "pages": {
+            "type": "array",
+            "description": "要修改的页面列表"
+          }
+        },
+        "required": [
+          "title",
+          "pages"
+        ]
+      }
+    },
+    "block_delete_block": {
+      "name": "block_delete_block",
+      "description": "删除指定的块 删除块时会同时删除其所有子孙节点",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "description": "块 ID"
+          }
+        },
+        "required": [
+          "block_id"
+        ]
+      }
+    },
+    "block_describe_block": {
+      "name": "block_describe_block",
+      "description": "获取指定块的详细信息 返回块的基本信息和内容，不包含嵌套的子块结构",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "description": "块 ID"
+          }
+        },
+        "required": [
+          "block_id"
+        ]
+      }
+    },
+    "file_apply_upload": {
+      "name": "file_apply_upload",
+      "description": "【上传文件第1步】申请文件上传凭证。返回 session_id 和上传地址。支持新建文件和更新已有文件两种场景。\n\n⚠️ 完整上传流程（3步，缺一不可）：\n1. 调用 apply_upload 获取 session.upload_url\n2. 【必须】使用 HTTP PUT 请求将文件内容上传到 session.upload_url（非 MCP 调用）\n3. 调用 commit_upload 确认上传完成\n\n📋 重要参数说明（新建 vs 更新）：\n\n**场景1：新建文件**\n- file_id: 留空（不传）\n- parent_entry_id: 填写父节点的 entry_id（文件将创建在这个父节点下）\n\n**场景2：更新已有文件（重新上传）**\n- file_id: 【必填】要更新的文件ID，可通过 describe_entry 获取条目详情，返回的 target_id 即为 file_id\n- parent_entry_id: 【必填】填写当前文件条目自己的 entry_id（不是父节点！）\n\n**通用参数：**\n- upload_type: 固定为 PRE_SIGNED_URL\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "description": "文件 ID（更新时必填）"
+          },
+          "parent_entry_id": {
+            "type": "string",
+            "description": "父节点 entry ID"
+          },
+          "upload_type": {
+            "type": "string",
+            "description": "上传类型",
+            "default": "PRE_SIGNED_URL"
+          }
+        },
+        "required": []
+      }
+    },
+    "block_move_blocks": {
+      "name": "block_move_blocks",
+      "description": "批量移动块到新位置 将多个块移动到同一个父节点下，支持在同一父节点内调整顺序，或移动到不同的父节点 注意： - 所有块只能移动到同一个目标父节点，不支持分别移动到不同父节点 - 目标父节点不能是叶子节点类型（不支持 children 的块类型），包括： h1, h2, h3, h4, h5（标题块）、code（代码块）、image（图片块）、 attachment（附件块）、video（视频块）、divider（分割线）、 mermaid（Mermaid图表块）、plantuml（PlantUML图表块）",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "block_ids": {
+            "type": "array",
+            "description": "要移动的块 ID 列表"
+          },
+          "parent_block_id": {
+            "type": "string",
+            "description": "目标父块 ID"
+          }
+        },
+        "required": [
+          "block_ids",
+          "parent_block_id"
+        ]
+      }
+    },
+    "space_list_spaces": {
+      "name": "space_list_spaces",
+      "description": "获取团队下的知识库列表。team_id 为必填参数（需先通过 ListTeams 获取团队ID），可选 permission 参数过滤有特定权限的知识库。返回 spaces 数组，每个包含 id、name、root_entry_id 等字段",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "团队 ID"
+          },
+          "permission": {
+            "type": "string",
+            "description": "权限过滤，可选"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      }
+    },
+    "tx_meeting_import_tx_meeting_record": {
+      "name": "tx_meeting_import_tx_meeting_record",
+      "description": "导入腾讯会议录制请求，需要提供parent_entry_id，如果用户提供的是知识链接，需要解析出parent_entry_id\nstart_time和end_time可以适当地比 TxMeetingRecord 中得到的 start_time 和 end_time 提前或延后一些，以确保录制内容的完整性\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "description": "录制记录 ID"
+          },
+          "parent_entry_id": {
+            "type": "string",
+            "description": "父节点 entry ID"
+          },
+          "start_time": {
+            "type": "string",
+            "description": "开始时间"
+          },
+          "end_time": {
+            "type": "string",
+            "description": "结束时间"
+          }
+        },
+        "required": [
+          "record_id",
+          "parent_entry_id"
+        ]
+      }
+    },
+    "entry_list_parents": {
+      "name": "entry_list_parents",
+      "description": "获取条目的所有父级节点（面包屑路径）。entry_id 为条目ID，返回从根到当前节点的路径",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entry_id": {
+            "type": "string",
+            "description": "条目 entry ID"
+          }
+        },
+        "required": [
+          "entry_id"
+        ]
+      }
+    },
+    "file_create_hyperlink": {
+      "name": "file_create_hyperlink",
+      "description": "导入外部链接（如微信公众号文章）到知识库。url 为文章链接，space_id 为目标知识库，parent_entry_id 为父节点",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "文章链接"
+          },
+          "space_id": {
+            "type": "string",
+            "description": "目标知识库 Space ID"
+          },
+          "parent_entry_id": {
+            "type": "string",
+            "description": "父节点 entry ID"
+          }
+        },
+        "required": [
+          "url",
+          "space_id",
+          "parent_entry_id"
+        ]
+      }
+    },
+    "tx_meeting_describe_tx_meeting_record": {
+      "name": "tx_meeting_describe_tx_meeting_record",
+      "description": "Call lexiang.api.connector.TxMeetingService.DescribeTxMeetingRecord",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "description": "录制记录 ID"
+          }
+        },
+        "required": [
+          "record_id"
+        ]
+      }
+    },
+    "entry_list_children": {
+      "name": "entry_list_children",
+      "description": "获取指定节点的子条目列表。parent_id 为父节点ID，若要获取知识库一级目录，请先调用 DescribeSpace 获取 root_entry_id，再传入作为 parent_id。返回 entries 数组，每个条目包含 has_children 字段表示是否有子节点，entry_type 区分类型(page/folder/file)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "parent_id": {
+            "type": "string",
+            "description": "父节点 entry ID"
+          }
+        },
+        "required": [
+          "parent_id"
+        ]
+      }
+    },
+    "team_describe_team": {
+      "name": "team_describe_team",
+      "description": "获取团队详情。team_id 为团队ID，返回团队基本信息。团队首页链接: {domain}/t/{team_id}/spaces",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "团队 ID"
+          }
+        },
+        "required": [
+          "team_id"
+        ]
+      }
+    },
+    "entry_list_latest_entries": {
+      "name": "entry_list_latest_entries",
+      "description": "获取知识库中最近更新的条目列表。space_id 为知识库ID",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "description": "知识库 Space ID"
+          }
+        },
+        "required": [
+          "space_id"
+        ]
+      }
+    },
+    "search_kb_search": {
+      "name": "search_kb_search",
+      "description": "知识库搜索。keyword 为关键词，type 支持space/kb_doc/doc/team/all 等类型",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "description": "搜索关键词"
+          },
+          "space_id": {
+            "type": "string",
+            "description": "知识库 Space ID，可选"
+          },
+          "team_id": {
+            "type": "string",
+            "description": "团队 ID，可选"
+          },
+          "type": {
+            "type": "string",
+            "description": "搜索类型：space/kb_doc/doc/team/all",
+            "enum": [
+              "space",
+              "kb_doc",
+              "doc",
+              "team",
+              "all"
+            ]
+          },
+          "title_only": {
+            "type": "boolean",
+            "description": "仅搜索标题",
+            "default": false
+          },
+          "limit": {
+            "type": "integer",
+            "description": "限制返回结果数",
+            "default": 20
+          }
+        },
+        "required": [
+          "keyword"
+        ]
+      }
+    },
+    "entry_import_content_to_entry": {
+      "name": "entry_import_content_to_entry",
+      "description": "导入内容到已存在的页面，支持 markdown/html 格式，优先使用在线文档编辑接口。\n如果用户强调了使用 block tool，不允许使用这个 tool 进行偷懒。\n必须优先使用 update_block/update_blocks 或 create_block_descendant 进行局部更新，以保持文档块结构的完整性。批量修改时推荐使用 update_blocks 提高效率。\nforce_write=true 时会清空页面原有内容后覆盖写入，force_write=false 时追加到页面末尾或指定位置。\n⚠️ after_block_id 只能是页面第一层（根级别）的 block ID，不能是嵌套在其他 block 内部的子 block。\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entry_id": {
+            "type": "string",
+            "description": "条目 entry ID"
+          },
+          "content": {
+            "type": "string",
+            "description": "内容（markdown/html）"
+          },
+          "force_write": {
+            "type": "boolean",
+            "description": "是否覆盖写入",
+            "default": false
+          },
+          "after_block_id": {
+            "type": "string",
+            "description": "插入到指定块之后，可选"
+          }
+        },
+        "required": [
+          "entry_id",
+          "content"
+        ]
+      }
+    },
+    "whoami": {
+      "name": "whoami",
+      "description": "MCP 获取当前员工的身份信息的工具",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    "add_ppt_pages": {
+      "name": "add_ppt_pages",
+      "description": "在 PPT 中添加新页面\n参数:\n- title: PPT 标题\n- pages: 要添加的页面列表，每项包含:\n  - insert_after: 在哪一页之后插入（0 表示插入到最前面）\n  - title: 页面标题\n  - subtitle: 页面副标题\n  - key_points: 页面要点内容\n  - slide_type: 页面类型（cover/content/ending）\n返回:\n- edit_result: 包含 preview_url(预览链接)、title(标题)、instruction(给LLM的指令)、created_at(创建时间)\n- added_pages: 新添加的页面索引列表\n- total_pages: 当前总页数\n- message: 结果消息\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "PPT 标题"
+          },
+          "pages": {
+            "type": "array",
+            "description": "要添加的页面列表"
+          }
+        },
+        "required": [
+          "title",
+          "pages"
+        ]
+      }
+    },
+    "comment_describe_comment": {
+      "name": "comment_describe_comment",
+      "description": "获取知识评论详情\n- target_type: 评论类型,目前支持 \"kb_entry\" (页面)\n- target_id: 页面id\n返回comment列表，content不是普通的HTML，注意解析\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target_type": {
+            "type": "string",
+            "description": "评论类型，目前支持 kb_entry",
+            "default": "kb_entry"
+          },
+          "target_id": {
+            "type": "string",
+            "description": "页面 ID"
+          }
+        },
+        "required": [
+          "target_id"
+        ]
+      }
+    },
+    "block_convert_content_to_blocks": {
+      "name": "block_convert_content_to_blocks",
+      "description": "将 HTML 或 Markdown 内容转换为块结构 纯转换接口，不创建任何页面或块，仅返回与 CreateBlockDescendant 兼容的块结构 典型用法：先调用此接口将内容转换为块结构，再将返回的 descendant 传入 CreateBlockDescendant 创建块",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "内容（HTML/Markdown）"
+          },
+          "content_type": {
+            "type": "string",
+            "description": "内容类型：html/markdown",
+            "enum": [
+              "html",
+              "markdown"
+            ]
+          }
+        },
+        "required": [
+          "content",
+          "content_type"
+        ]
+      }
+    },
+    "entry_create_entry": {
+      "name": "entry_create_entry",
+      "description": "创建知识条目，支持创建页面(page)、文件夹(folder)。\n- entry_type: 条目类型（必填），目前支持 \"page\"（页面）或 \"folder\"（文件夹）\n- parent_entry_id: 父节点ID，可使用知识库的 root_entry_id 创建一级条目\n- name: 条目名称\n- after: 位置，创建到指定条目之后，如果为空则移动到第一个位置\n返回 entry 对象，其中 entry.id 可用于构建访问链接: {domain}/pages/{entry_id}\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entry_type": {
+            "type": "string",
+            "description": "条目类型：page/folder",
+            "enum": [
+              "page",
+              "folder"
+            ]
+          },
+          "parent_entry_id": {
+            "type": "string",
+            "description": "父节点 entry ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "条目名称"
+          },
+          "after": {
+            "type": "string",
+            "description": "插入到指定条目之后，可选"
+          }
+        },
+        "required": [
+          "entry_type",
+          "parent_entry_id",
+          "name"
+        ]
+      }
+    },
+    "space_list_recently_spaces": {
+      "name": "space_list_recently_spaces",
+      "description": "获取用户最近访问的知识库列表",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    "search_kb_embedding_search": {
+      "name": "search_kb_embedding_search",
+      "description": "对知识进行向量检索，可以用于内容召回场景，如非需要使用向量检索的场景，可以使用普通搜索",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "description": "搜索关键词"
+          },
+          "space_id": {
+            "type": "string",
+            "description": "知识库 Space ID，可选"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "限制返回结果数",
+            "default": 10
+          }
+        },
+        "required": [
+          "keyword"
+        ]
+      }
+    },
+    "reorder_ppt_pages": {
+      "name": "reorder_ppt_pages",
+      "description": "调整 PPT 页面顺序\n参数:\n- title: PPT 标题\n- new_order: 新的页面顺序，数组中每个元素是原来的页面索引\n  例如 [3, 1, 2] 表示将原来的第 3 页放到第 1 位，原来的第 1 页放到第 2 位，原来的第 2 页放到第 3 位\n返回:\n- edit_result: 包含 preview_url(预览链接)、title(标题)、instruction(给LLM的指令)、created_at(创建时间)\n- new_order: 实际生效的新页面顺序\n- total_pages: 总页数\n- message: 结果消息\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "PPT 标题"
+          },
+          "new_order": {
+            "type": "array",
+            "description": "新的页面顺序"
+          }
+        },
+        "required": [
+          "title",
+          "new_order"
+        ]
+      }
+    },
+    "block_delete_block_children": {
+      "name": "block_delete_block_children",
+      "description": "批量删除指定块的直接子块 仅删除指定的子块列表，不影响其他子块",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "description": "块 ID"
+          },
+          "children_ids": {
+            "type": "array",
+            "description": "要删除的子块 ID 列表"
+          }
+        },
+        "required": [
+          "block_id",
+          "children_ids"
+        ]
+      }
+    },
+    "space_describe_space": {
+      "name": "space_describe_space",
+      "description": "获取知识库详情。space_id 为知识库ID，返回知识库基本信息。关键返回字段: root_entry_id（根节点ID，用于 ListChildren 获取一级目录）、team_id（所属团队）、name（知识库名称）。知识库访问链接: {domain}/spaces/{space_id}",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "space_id": {
+            "type": "string",
+            "description": "知识库 Space ID"
+          }
+        },
+        "required": [
+          "space_id"
+        ]
+      }
+    },
+    "delete_ppt_pages": {
+      "name": "delete_ppt_pages",
+      "description": "删除 PPT 中的指定页面\n参数:\n- title: PPT 标题\n- page_indexes: 要删除的页面索引列表（从 1 开始）\n返回:\n- edit_result: 包含 preview_url(预览链接)、title(标题)、instruction(给LLM的指令)、created_at(创建时间)\n- deleted_pages: 已成功删除的页面索引列表\n- total_pages: 剩余总页数\n- message: 结果消息\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "PPT 标题"
+          },
+          "page_indexes": {
+            "type": "array",
+            "description": "要删除的页面索引列表（从 1 开始）"
+          }
+        },
+        "required": [
+          "title",
+          "page_indexes"
+        ]
+      }
+    },
+    "team_list_frequent_teams": {
+      "name": "team_list_frequent_teams",
+      "description": "获取用户常用团队列表。返回 teams 数组，每个包含 id、name 等字段",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    "entry_describe_entry": {
+      "name": "entry_describe_entry",
+      "description": "获取知识条目详情。entry_id 为条目ID（可从页面链接 {domain}/pages/{entry_id} 中提取）。\n关键字段：entry_type（类型：page/folder/file）、target_id（关联资源ID，file 类型时即为 file_id，可用于 apply_upload 更新文件）、name（名称）、space_id（所属知识库）、has_children（是否有子节点）。\n条目访问链接：{domain}/pages/{entry_id}\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entry_id": {
+            "type": "string",
+            "description": "条目 entry ID"
+          }
+        },
+        "required": [
+          "entry_id"
+        ]
+      }
+    },
+    "team_list_teams": {
+      "name": "team_list_teams",
+      "description": "获取当前用户可访问的团队列表。这是获取知识库的第一步，因为知识库(Space)必须属于某个团队(Team)。可选 permission 参数过滤有特定权限的团队。返回 teams 数组，每个包含 id、name 等字段",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "permission": {
+            "type": "string",
+            "description": "权限过滤，可选"
+          }
+        },
+        "required": []
+      }
+    },
+    "comment_list_comments": {
+      "name": "comment_list_comments",
+      "description": "获取知识评论列表\n- target_type: 评论类型,目前支持 \"kb_entry\" (页面)\n- target_id: 页面id\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "target_type": {
+            "type": "string",
+            "description": "评论类型，目前支持 kb_entry",
+            "default": "kb_entry"
+          },
+          "target_id": {
+            "type": "string",
+            "description": "页面 ID"
+          }
+        },
+        "required": [
+          "target_id"
+        ]
+      }
+    },
+    "tx_meeting_list_tx_meeting_records": {
+      "name": "tx_meeting_list_tx_meeting_records",
+      "description": "待废弃，使用更通用的 SearchTxMeetingRecords",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "meeting_id": {
+            "type": "string",
+            "description": "腾讯会议号"
+          }
+        },
+        "required": []
+      }
+    },
+    "generate_ppt": {
+      "name": "generate_ppt",
+      "description": "创建 PPT 生成任务，返回任务 ID\n参数:\n- planning: 生成 PPT 的规划，比如：页数、标题、风格等\n- context: 生成 PPT 所需的参考内容。仅当未执行过 deep_research 或其 report_url 为空时传入\n- deep_research_report_url: 深度研究报告的 COS URL\n- use_template: PPT 模板类型，如 tencent_cloud_template 或 default\n返回:\n- id: 任务唯一标识\n- status: 任务状态\n- message: 状态进度消息\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "planning": {
+            "type": "string",
+            "description": "生成 PPT 的规划，如页数、标题、风格等"
+          },
+          "context": {
+            "type": "string",
+            "description": "生成 PPT 所需的参考内容"
+          },
+          "deep_research_report_url": {
+            "type": "string",
+            "description": "深度研究报告的 COS URL"
+          },
+          "use_template": {
+            "type": "string",
+            "description": "PPT 模板类型",
+            "default": "default"
+          }
+        },
+        "required": [
+          "planning"
+        ]
+      }
+    },
+    "block_create_block_descendant": {
+      "name": "block_create_block_descendant",
+      "description": "在指定块下创建子孙节点 支持批量创建多级嵌套的子块结构，可指定插入位置 注意：当内容较大时（如长文档或大量块），建议分批调用此接口进行插入",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "description": "块 ID"
+          },
+          "descendant": {
+            "type": "object",
+            "description": "块结构定义"
+          }
+        },
+        "required": [
+          "block_id",
+          "descendant"
+        ]
+      }
+    },
+    "block_list_block_children": {
+      "name": "block_list_block_children",
+      "description": "列出指定块的子节点 支持递归获取所有子孙节点，或仅获取直接子节点",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "description": "块 ID"
+          },
+          "recursive": {
+            "type": "boolean",
+            "description": "是否递归获取所有子孙节点",
+            "default": false
+          }
+        },
+        "required": [
+          "block_id"
+        ]
+      }
+    },
+    "block_update_blocks": {
+      "name": "block_update_blocks",
+      "description": "批量更新多个块 支持在单次请求中对多个块执行不同类型的更新操作，每个块的更新操作相互独立 注意：每个块在单次请求中只能执行一种更新操作，如需同时更新文本和样式请使用 UpdateText",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "blocks": {
+            "type": "array",
+            "description": "块更新列表"
+          }
+        },
+        "required": [
+          "blocks"
+        ]
+      }
+    },
+    "search_kb_fetch_doc": {
+      "name": "search_kb_fetch_doc",
+      "description": "获取文档详情",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entry_id": {
+            "type": "string",
+            "description": "文档 entry ID"
+          }
+        },
+        "required": [
+          "entry_id"
+        ]
+      }
+    },
+    "search_kb_create_doc": {
+      "name": "search_kb_create_doc",
+      "description": "创建新文档",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "parent_id": {
+            "type": "string",
+            "description": "父节点 entry ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "文档名称"
+          },
+          "content": {
+            "type": "string",
+            "description": "文档内容（markdown）"
+          }
+        },
+        "required": [
+          "parent_id",
+          "name",
+          "content"
+        ]
+      }
+    },
+    "search_kb_update_doc": {
+      "name": "search_kb_update_doc",
+      "description": "更新文档内容",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entry_id": {
+            "type": "string",
+            "description": "文档 entry ID"
+          },
+          "content": {
+            "type": "string",
+            "description": "文档内容"
+          },
+          "mode": {
+            "type": "string",
+            "description": "更新模式：append/prepend/replace",
+            "default": "replace",
+            "enum": [
+              "append",
+              "prepend",
+              "replace"
+            ]
+          }
+        },
+        "required": [
+          "entry_id",
+          "content"
+        ]
+      }
+    },
+    "search_kb_space": {
+      "name": "search_kb_space",
+      "description": "浏览空间/目录结构",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "操作类型：list-children/list-spaces",
+            "enum": [
+              "list-children",
+              "list-spaces"
+            ]
+          },
+          "entry_id": {
+            "type": "string",
+            "description": "Entry ID（用于 list-children）"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      }
+    }
+  }
 }

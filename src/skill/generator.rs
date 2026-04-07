@@ -10,6 +10,18 @@ use anyhow::Result;
 use std::fs;
 use std::path::PathBuf;
 
+/// 安全截断字符串（处理多字节 UTF-8 字符）
+fn truncate_str(s: &str, max_chars: usize) -> String {
+    let char_count = s.chars().count();
+    if char_count <= max_chars {
+        // 多行描述只取第一行
+        s.lines().next().unwrap_or(s).to_string()
+    } else {
+        let truncated: String = s.chars().take(max_chars - 3).collect();
+        format!("{}...", truncated)
+    }
+}
+
 /// Skill 文件生成器
 pub struct SkillGenerator<'a> {
     schema: &'a McpSchemaCollection,
@@ -121,12 +133,8 @@ impl<'a> SkillGenerator<'a> {
         for tool in &category.tools {
             let cmd_name = extract_command_name(&tool.name, &namespace);
             let desc = tool.description.as_deref().unwrap_or("无描述");
-            // 截断过长描述
-            let short_desc = if desc.len() > 80 {
-                format!("{}...", &desc[..77])
-            } else {
-                desc.to_string()
-            };
+            // 截断过长描述（安全处理多字节字符）
+            let short_desc = truncate_str(desc, 80);
             content.push_str(&format!(
                 "| `lx {} {}` | {} |\n",
                 namespace, cmd_name, short_desc
@@ -163,12 +171,8 @@ impl<'a> SkillGenerator<'a> {
                                 "否"
                             };
                             let desc = prop.description.as_deref().unwrap_or("-");
-                            // 截断过长描述
-                            let short_desc = if desc.len() > 60 {
-                                format!("{}...", &desc[..57])
-                            } else {
-                                desc.to_string()
-                            };
+                            // 截断过长描述（安全处理多字节字符）
+                            let short_desc = truncate_str(desc, 60);
                             content.push_str(&format!(
                                 "| `--{}` | {} | {} | {} |\n",
                                 arg_name, type_str, required, short_desc

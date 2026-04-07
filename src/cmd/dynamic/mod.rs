@@ -96,6 +96,7 @@ pub fn print_help_with_dynamic_commands(schema: Option<&McpSchemaCollection>) {
     println!("  lexiang        Lexiang namespace commands");
     println!("  mcp            MCP operations");
     println!("  tools          Tools schema management");
+    println!("  skill          Manage AI agent skill files (generate, install, uninstall)");
     println!("  git            Git-style commands for local workspace");
     println!("  worktree       Worktree management (manage multiple local workspaces)");
     println!("  completion     Generate shell completion script");

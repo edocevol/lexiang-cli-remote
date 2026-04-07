@@ -2,8 +2,8 @@ use crate::mcp::schema::types::{extract_command_name, extract_namespace, McpSche
 use crate::mcp::ToolSchema;
 use std::collections::HashMap;
 
-/// 编译时嵌入的 schema JSON
-const EMBEDDED_SCHEMA_JSON: &str = include_str!("embedded_schema.json");
+/// 编译时嵌入的 schema JSON（源文件位于项目根目录 schemas/lexiang.json）
+const EMBEDDED_SCHEMA_JSON: &str = include_str!("../../../schemas/lexiang.json");
 
 /// 加载嵌入的 schema 到 HashMap（兼容旧接口）
 pub fn load_embedded_schemas() -> HashMap<String, ToolSchema> {

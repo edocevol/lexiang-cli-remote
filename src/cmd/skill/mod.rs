@@ -1,14 +1,11 @@
 use crate::datadir;
-use crate::mcp::schema::RuntimeSchemaManager;
 use crate::skill::{AgentKind, InstallScope, SkillGenerator, SkillInstaller};
 use anyhow::Result;
 use std::path::PathBuf;
 
 /// 生成 skill 文件（lx skill generate）
 pub fn handle_generate(output: Option<&str>) -> Result<()> {
-    let runtime = RuntimeSchemaManager::new();
-    let schema = runtime
-        .load()?
+    let schema = super::load_schema()
         .ok_or_else(|| anyhow::anyhow!("No schema found. Run 'lx tools sync' first."))?;
 
     let output_dir = match output {
