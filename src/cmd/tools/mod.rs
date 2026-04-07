@@ -1,9 +1,7 @@
 use crate::config::Config;
-use crate::datadir;
-use crate::mcp::schema::{RuntimeSchemaManager, SchemaManager, SkillGenerator};
+use crate::mcp::schema::{RuntimeSchemaManager, SchemaManager};
 use crate::mcp::McpClient;
 use anyhow::Result;
-use std::path::PathBuf;
 
 pub async fn handle_sync(config: &Config) -> Result<()> {
     println!("Syncing tool schema from MCP Server...");
@@ -73,31 +71,6 @@ pub fn handle_list(category: Option<&str>) -> Result<()> {
             println!("Available categories: {}", names.join(", "));
             println!("\nUse 'lx tools list --category <name>' to see tools in a category.");
         }
-    }
-
-    Ok(())
-}
-
-pub fn handle_skill(output: Option<&str>) -> Result<()> {
-    let runtime = RuntimeSchemaManager::new();
-    let schema = runtime
-        .load()?
-        .ok_or_else(|| anyhow::anyhow!("No schema found. Run 'lx tools sync' first."))?;
-
-    let output_dir = match output {
-        Some(path) => PathBuf::from(path),
-        None => datadir::skills_dir(),
-    };
-
-    let generator = SkillGenerator::new(&schema, output_dir.clone());
-    let files = generator.generate_all()?;
-
-    println!("Generated {} skill files to {:?}:", files.len(), output_dir);
-    for file in files {
-        println!(
-            "  - {}",
-            file.file_name().unwrap_or_default().to_string_lossy()
-        );
     }
 
     Ok(())

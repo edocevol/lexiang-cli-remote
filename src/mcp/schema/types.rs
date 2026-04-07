@@ -149,8 +149,6 @@ impl McpSchemaCollection {
 pub struct ResolvedSubcommand {
     /// 匹配到的 namespace
     pub namespace: String,
-    /// 匹配到的命令名（kebab-case）
-    pub command_name: String,
 }
 
 impl McpSchemaCollection {
@@ -172,11 +170,8 @@ impl McpSchemaCollection {
         }
 
         if matches.len() == 1 {
-            let (namespace, command_name) = matches.into_iter().next().unwrap();
-            Some(ResolvedSubcommand {
-                namespace,
-                command_name,
-            })
+            let (namespace, _command_name) = matches.into_iter().next().unwrap();
+            Some(ResolvedSubcommand { namespace })
         } else {
             None
         }

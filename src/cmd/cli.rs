@@ -22,6 +22,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: ToolsCommands,
     },
+    /// Manage AI agent skill files (generate, install, uninstall)
+    Skill {
+        #[command(subcommand)]
+        command: Option<SkillCommands>,
+    },
     /// Worktree management (manage multiple local workspaces)
     Worktree {
         #[command(subcommand)]
@@ -106,11 +111,45 @@ pub enum ToolsCommands {
         #[arg(short, long)]
         category: Option<String>,
     },
-    /// Generate skill files for AI agents
-    Skill {
+}
+
+#[derive(clap::Subcommand)]
+pub enum SkillCommands {
+    /// Generate skill files to ~/.lexiang/skills/ (default action)
+    Generate {
         /// Output directory (default: ~/.lexiang/skills)
         #[arg(short, long)]
         output: Option<String>,
+    },
+    /// Install skills to AI agent config directories
+    Install {
+        /// Target agents: claude, codebuddy, gemini, codex, or "all" (default: all)
+        #[arg(short, long, default_value = "all")]
+        agent: String,
+        /// Install scope: user (global) or project (current dir)
+        #[arg(short, long, default_value = "user")]
+        scope: String,
+        /// Project directory (for project scope, default: current dir)
+        #[arg(short, long)]
+        project_dir: Option<String>,
+    },
+    /// Uninstall skills from AI agent config directories
+    Uninstall {
+        /// Target agents: claude, codebuddy, gemini, codex, or "all" (default: all)
+        #[arg(short, long, default_value = "all")]
+        agent: String,
+        /// Uninstall scope: user or project (default: user)
+        #[arg(short, long, default_value = "user")]
+        scope: String,
+        /// Project directory (for project scope, default: current dir)
+        #[arg(short, long)]
+        project_dir: Option<String>,
+    },
+    /// Show installation status across all agents
+    Status {
+        /// Project directory to check project-level installs
+        #[arg(short, long)]
+        project_dir: Option<String>,
     },
 }
 

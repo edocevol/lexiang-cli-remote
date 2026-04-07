@@ -35,6 +35,8 @@ pub struct TokenData {
     pub access_token: String,
     pub refresh_token: Option<String>,
     pub expires_at: Option<i64>,
+    /// 动态注册获得的 `client_id`，refresh 时需要
+    pub client_id: Option<String>,
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -287,14 +289,16 @@ async fn refresh_token(token: &TokenData) -> Result<TokenData> {
     // 复用 .well-known 获取 token_endpoint
     let cfg: OAuthServerConfigMinimal = http.get(WELL_KNOWN_URL).send().await?.json().await?;
 
-    let resp = http
-        .post(&cfg.token_endpoint)
-        .form(&[
-            ("grant_type", "refresh_token"),
-            ("refresh_token", refresh.as_str()),
-        ])
-        .send()
-        .await?;
+    let mut form = vec![
+        ("grant_type".to_string(), "refresh_token".to_string()),
+        ("refresh_token".to_string(), refresh.clone()),
+    ];
+    // 公共客户端 refresh 时需要携带 client_id
+    if let Some(cid) = &token.client_id {
+        form.push(("client_id".to_string(), cid.clone()));
+    }
+
+    let resp = http.post(&cfg.token_endpoint).form(&form).send().await?;
 
     let status = resp.status();
     if !status.is_success() {
@@ -310,6 +314,7 @@ async fn refresh_token(token: &TokenData) -> Result<TokenData> {
         expires_at: tr
             .expires_in
             .map(|ei| chrono::Utc::now().timestamp() + ei as i64),
+        client_id: token.client_id.clone(),
     })
 }
 
@@ -390,5 +395,6 @@ async fn exchange_code(
         expires_at: tr
             .expires_in
             .map(|ei| chrono::Utc::now().timestamp() + ei as i64),
+        client_id: Some(reg.client_id.clone()),
     })
 }
