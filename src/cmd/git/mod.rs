@@ -393,13 +393,26 @@ async fn handle_push(config: &Config, dry_run: bool, force: bool) -> Result<()> 
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_default();
 
-        let parent_entry_id = if parent_dir.is_empty() {
-            root_entry_id.clone()
+        // 确保父文件夹在远程存在
+        let parent_entry_id = if dry_run {
+            if parent_dir.is_empty() {
+                root_entry_id.clone()
+            } else {
+                entries_map
+                    .get(&parent_dir)
+                    .map(|info| info.entry_id.clone())
+                    .unwrap_or_else(|| root_entry_id.clone())
+            }
         } else {
-            entries_map
-                .get(&parent_dir)
-                .map(|info| info.entry_id.clone())
-                .unwrap_or_else(|| root_entry_id.clone())
+            match ensure_parent_folders(&client, &root_entry_id, &parent_dir, &mut entries_map)
+                .await
+            {
+                Ok(id) => id,
+                Err(e) => {
+                    stats.errors.push(format!("{}: failed to create parent folder: {}", path, e));
+                    continue;
+                }
+            }
         };
 
         if path.ends_with(".md") {
@@ -630,10 +643,20 @@ async fn handle_revert(config: &Config, commit: &str, dry_run: bool) -> Result<(
 
     for path in &current_paths {
         if !target_paths.contains(path) && !path.starts_with(".lxworktree") {
-            if dry_run {
-                println!("  [DELETE] {} (not supported)", path);
-            } else {
-                println!("  [SKIP] {} (delete not supported)", path);
+            if let Some(entry_info) = entries_map.get(path) {
+                if dry_run {
+                    println!("  [DELETE] {}", path);
+                } else {
+                    match delete_entry(&client, &entry_info.entry_id).await {
+                        Ok(_) => {
+                            println!("  Deleted: {}", path);
+                            stats.entries_deleted += 1;
+                        }
+                        Err(e) => {
+                            stats.errors.push(format!("delete {}: {}", path, e));
+                        }
+                    }
+                }
             }
         }
     }
@@ -829,14 +852,21 @@ async fn pull_entries_recursive(
                 }
             },
             worktree::EntryType::File | worktree::EntryType::Smartsheet => {
-                worktree::EntriesManager::add(
-                    entries_map,
-                    local_relative_path.clone(),
-                    entry_id.to_string(),
-                    entry_type,
-                    None,
-                );
-                stats.files_pulled += 1;
+                match download_file(client, entry_id, &local_path).await {
+                    Ok(_) => {
+                        worktree::EntriesManager::add(
+                            entries_map,
+                            local_relative_path.clone(),
+                            entry_id.to_string(),
+                            entry_type,
+                            None,
+                        );
+                        stats.files_pulled += 1;
+                    }
+                    Err(e) => {
+                        stats.errors.push(format!("{}: {}", local_relative_path, e));
+                    }
+                }
             }
         }
     }
@@ -1040,4 +1070,152 @@ async fn update_file_content(
 
     client.upload_file(&config, file_path).await?;
     Ok(())
+}
+
+async fn delete_entry(client: &McpClient, entry_id: &str) -> Result<()> {
+    let _result: serde_json::Value = client
+        .call_raw(
+            "entry_delete_entry",
+            serde_json::json!({
+                "entry_id": entry_id
+            }),
+        )
+        .await?;
+
+    Ok(())
+}
+
+async fn download_file(
+    client: &McpClient,
+    entry_id: &str,
+    local_path: &std::path::Path,
+) -> Result<()> {
+    // 先获取 entry 详情拿到 file_id (target_id)
+    let entry_info: serde_json::Value = client
+        .call_raw(
+            "entry_describe_entry",
+            serde_json::json!({ "entry_id": entry_id }),
+        )
+        .await?;
+
+    let file_id = entry_info
+        .pointer("/data/entry/target_id")
+        .or_else(|| entry_info.pointer("/data/target_id"))
+        .or_else(|| entry_info.get("target_id"))
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            anyhow::anyhow!("Failed to get file_id (target_id) for entry {}", entry_id)
+        })?;
+
+    // 调用 file_download_file 获取下载 URL
+    let download_result: serde_json::Value = client
+        .call_raw(
+            "file_download_file",
+            serde_json::json!({
+                "file_id": file_id,
+                "expire_seconds": 3600
+            }),
+        )
+        .await?;
+
+    let download_url = download_result
+        .pointer("/data/url")
+        .or_else(|| download_result.get("url"))
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Failed to get download URL for file {}", file_id))?;
+
+    // 下载文件内容
+    let response = reqwest::get(download_url).await?;
+    if !response.status().is_success() {
+        anyhow::bail!(
+            "Failed to download file: HTTP {}",
+            response.status().as_u16()
+        );
+    }
+
+    let bytes = response.bytes().await?;
+
+    // 确保父目录存在
+    if let Some(parent) = local_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    std::fs::write(local_path, &bytes)?;
+
+    Ok(())
+}
+
+async fn create_folder(
+    client: &McpClient,
+    parent_entry_id: &str,
+    name: &str,
+) -> Result<String> {
+    let result: serde_json::Value = client
+        .call_raw(
+            "entry_create_entry",
+            serde_json::json!({
+                "entry_type": "folder",
+                "parent_entry_id": parent_entry_id,
+                "name": name
+            }),
+        )
+        .await?;
+
+    let entry_id = result
+        .get("data")
+        .and_then(|d| d.get("entry"))
+        .and_then(|e| e.get("id"))
+        .and_then(|id| id.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Failed to get entry_id from create folder response"))?;
+
+    Ok(entry_id.to_string())
+}
+
+/// 确保远程父文件夹存在，返回最终的 parent_entry_id
+async fn ensure_parent_folders(
+    client: &McpClient,
+    root_entry_id: &str,
+    parent_dir: &str,
+    entries_map: &mut worktree::EntriesMap,
+) -> Result<String> {
+    if parent_dir.is_empty() {
+        return Ok(root_entry_id.to_string());
+    }
+
+    // 如果已经存在，直接返回
+    if let Some(info) = entries_map.get(parent_dir) {
+        return Ok(info.entry_id.clone());
+    }
+
+    // 递归确保父文件夹存在
+    let path = std::path::Path::new(parent_dir);
+    let parent_parent = path
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let folder_name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let parent_entry_id = Box::pin(ensure_parent_folders(
+        client,
+        root_entry_id,
+        &parent_parent,
+        entries_map,
+    ))
+    .await?;
+
+    // 创建当前文件夹
+    let new_folder_id = create_folder(client, &parent_entry_id, &folder_name).await?;
+
+    worktree::EntriesManager::add(
+        entries_map,
+        parent_dir.to_string(),
+        new_folder_id.clone(),
+        worktree::EntryType::Folder,
+        None,
+    );
+
+    Ok(new_folder_id)
 }

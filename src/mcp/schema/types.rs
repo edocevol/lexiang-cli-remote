@@ -144,6 +144,44 @@ impl McpSchemaCollection {
     }
 }
 
+/// 子命令唯一匹配的结果
+pub struct ResolvedSubcommand {
+    /// 匹配到的 namespace
+    pub namespace: String,
+    /// 匹配到的命令名（kebab-case）
+    pub command_name: String,
+}
+
+impl McpSchemaCollection {
+    /// 尝试将一个裸子命令名解析为某个 namespace 下的唯一命令。
+    ///
+    /// 例如 "whoami" 只在 contact namespace 下存在，则返回 Some(("contact", "whoami"))。
+    /// 如果有多个 namespace 都包含同名命令，则返回 None（有歧义）。
+    pub fn resolve_unique_subcommand(&self, subcommand: &str) -> Option<ResolvedSubcommand> {
+        let mut matches: Vec<(String, String)> = Vec::new();
+
+        for category in &self.categories {
+            let namespace = extract_namespace(&category.name);
+            for tool in &category.tools {
+                let cmd_name = extract_command_name(&tool.name, &namespace);
+                if cmd_name == subcommand {
+                    matches.push((namespace.clone(), cmd_name));
+                }
+            }
+        }
+
+        if matches.len() == 1 {
+            let (namespace, command_name) = matches.into_iter().next().unwrap();
+            Some(ResolvedSubcommand {
+                namespace,
+                command_name,
+            })
+        } else {
+            None
+        }
+    }
+}
+
 impl Default for McpSchemaCollection {
     fn default() -> Self {
         Self::new()

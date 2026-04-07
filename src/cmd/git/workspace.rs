@@ -812,11 +812,19 @@ async fn handle_push(config: &Config, dry_run: bool, force: bool) -> Result<()> 
         }
     }
 
-    for (_, path) in &to_delete {
+    for (entry_id, path) in &to_delete {
         if dry_run {
-            println!("  [DELETE] {} (not supported)", path);
+            println!("  [DELETE] {}", path);
         } else {
-            println!("  [SKIP] {} (delete not supported)", path);
+            match delete_entry(&client, entry_id).await {
+                Ok(_) => {
+                    println!("  Deleted: {}", path);
+                    stats.entries_deleted += 1;
+                }
+                Err(e) => {
+                    stats.errors.push(format!("delete {}: {}", path, e));
+                }
+            }
         }
     }
 
@@ -833,13 +841,26 @@ async fn handle_push(config: &Config, dry_run: bool, force: bool) -> Result<()> 
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_default();
 
-        let parent_entry_id = if parent_dir.is_empty() {
-            root_entry_id.clone()
+        // 确保父文件夹在远程存在
+        let parent_entry_id = if dry_run {
+            if parent_dir.is_empty() {
+                root_entry_id.clone()
+            } else {
+                entries_map
+                    .get(&parent_dir)
+                    .map(|info| info.entry_id.clone())
+                    .unwrap_or_else(|| root_entry_id.clone())
+            }
         } else {
-            entries_map
-                .get(&parent_dir)
-                .map(|info| info.entry_id.clone())
-                .unwrap_or_else(|| root_entry_id.clone())
+            match ensure_parent_folders(&client, &root_entry_id, &parent_dir, &mut entries_map)
+                .await
+            {
+                Ok(id) => id,
+                Err(e) => {
+                    stats.errors.push(format!("{}: failed to create parent folder: {}", path, e));
+                    continue;
+                }
+            }
         };
 
         if path.ends_with(".md") {
@@ -1065,10 +1086,20 @@ async fn handle_revert(config: &Config, commitish: &str, dry_run: bool) -> Resul
 
     for path in &current_paths {
         if !target_paths.contains(path) && !path.starts_with(".lxworktree") {
-            if dry_run {
-                println!("  [DELETE] {} (not supported)", path);
-            } else {
-                println!("  [SKIP] {} (delete not supported)", path);
+            if let Some(entry_info) = entries_map.get(path) {
+                if dry_run {
+                    println!("  [DELETE] {}", path);
+                } else {
+                    match delete_entry(&client, &entry_info.entry_id).await {
+                        Ok(_) => {
+                            println!("  Deleted: {}", path);
+                            stats.entries_deleted += 1;
+                        }
+                        Err(e) => {
+                            stats.errors.push(format!("delete {}: {}", path, e));
+                        }
+                    }
+                }
             }
         }
     }
@@ -1140,4 +1171,88 @@ async fn move_entry(client: &McpClient, entry_id: &str, parent_entry_id: &str) -
         .await?;
 
     Ok(())
+}
+
+async fn delete_entry(client: &McpClient, entry_id: &str) -> Result<()> {
+    let _result: serde_json::Value = client
+        .call_raw(
+            "entry_delete_entry",
+            serde_json::json!({
+                "entry_id": entry_id
+            }),
+        )
+        .await?;
+
+    Ok(())
+}
+
+async fn create_folder(client: &McpClient, parent_entry_id: &str, name: &str) -> Result<String> {
+    let result: serde_json::Value = client
+        .call_raw(
+            "entry_create_entry",
+            serde_json::json!({
+                "entry_type": "folder",
+                "parent_entry_id": parent_entry_id,
+                "name": name
+            }),
+        )
+        .await?;
+
+    let entry_id = result
+        .get("data")
+        .and_then(|d| d.get("entry"))
+        .and_then(|e| e.get("id"))
+        .and_then(|id| id.as_str())
+        .ok_or_else(|| anyhow::anyhow!("Failed to get entry_id from create folder response"))?;
+
+    Ok(entry_id.to_string())
+}
+
+/// 确保远程父文件夹存在，返回最终的 parent_entry_id
+async fn ensure_parent_folders(
+    client: &McpClient,
+    root_entry_id: &str,
+    parent_dir: &str,
+    entries_map: &mut worktree::EntriesMap,
+) -> Result<String> {
+    if parent_dir.is_empty() {
+        return Ok(root_entry_id.to_string());
+    }
+
+    // 如果已经存在，直接返回
+    if let Some(info) = entries_map.get(parent_dir) {
+        return Ok(info.entry_id.clone());
+    }
+
+    // 递归确保父文件夹存在
+    let path = std::path::Path::new(parent_dir);
+    let parent_parent = path
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let folder_name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let parent_entry_id = Box::pin(ensure_parent_folders(
+        client,
+        root_entry_id,
+        &parent_parent,
+        entries_map,
+    ))
+    .await?;
+
+    // 创建当前文件夹
+    let new_folder_id = create_folder(client, &parent_entry_id, &folder_name).await?;
+
+    worktree::EntriesManager::add(
+        entries_map,
+        parent_dir.to_string(),
+        new_folder_id.clone(),
+        worktree::EntryType::Folder,
+        None,
+    );
+
+    Ok(new_folder_id)
 }

@@ -32,4 +32,15 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# 4. Markdown lint for tracked docs
+MD_FILES=$(git ls-files -- '*.md')
+if [ -n "$MD_FILES" ]; then
+    if command -v npx >/dev/null 2>&1; then
+        echo "📘 Running markdownlint..."
+        git ls-files -z -- '*.md' | xargs -0 npx --yes markdownlint-cli2
+    else
+        echo "⏭️ npx not found, skipping Markdown lint."
+    fi
+fi
+
 echo "✅ All pre-commit checks passed!"

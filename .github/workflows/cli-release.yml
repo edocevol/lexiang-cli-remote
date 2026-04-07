@@ -72,12 +72,31 @@ jobs:
       - name: Fetch dependencies
         run: cargo fetch --target ${{ matrix.target }}
 
+      - name: Resolve release version
+        id: release_version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/cli-v* ]]; then
+            version="${GITHUB_REF#refs/tags/cli-v}"
+          elif [[ -n "${{ github.event.inputs.version }}" ]]; then
+            version="${{ github.event.inputs.version }}"
+          else
+            echo "Release version is required for workflow_dispatch" >&2
+            exit 1
+          fi
+
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
       - name: Build (cross)
         if: matrix.use_cross
+        env:
+          LX_VERSION: ${{ steps.release_version.outputs.value }}
         run: cross build --release --target ${{ matrix.target }}
 
       - name: Build (cargo)
         if: ${{ !matrix.use_cross }}
+        env:
+          LX_VERSION: ${{ steps.release_version.outputs.value }}
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Prepare artifact (Unix)
@@ -168,7 +187,18 @@ jobs:
 
       - name: Extract version
         id: version
-        run: echo "version=${GITHUB_REF#refs/tags/cli-v}" >> $GITHUB_OUTPUT
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/cli-v* ]]; then
+            version="${GITHUB_REF#refs/tags/cli-v}"
+          elif [[ -n "${{ github.event.inputs.version }}" ]]; then
+            version="${{ github.event.inputs.version }}"
+          else
+            echo "Release version is required" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

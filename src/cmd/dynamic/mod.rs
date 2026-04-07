@@ -105,6 +105,8 @@ pub fn print_help_with_dynamic_commands(schema: Option<&McpSchemaCollection>) {
     println!("  stop           Stop daemon");
     println!("  status         Show daemon status");
     println!("  version        Print version");
+    println!("  update         Check for updates from GitHub releases");
+    println!("  sh             Virtual shell for knowledge base exploration");
 
     if let Some(schema) = schema {
         println!();

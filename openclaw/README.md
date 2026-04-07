@@ -23,7 +23,7 @@ openclaw onboard
 
 在 OpenClaw 设置中配置：
 
-- **Access Token**: 乐享 API Token（从 https://lexiang.tencent.com/ai/claw 获取）
+- **Access Token**: 乐享 API Token（从 <https://lexiang.tencent.com/ai/claw> 获取）
 - **Binary Path**: 自定义 lx 二进制路径（可选）
 - **Auto Generate Tools**: 是否基于 schema 自动生成工具（默认 true）
 
@@ -51,11 +51,11 @@ lx tools list
 
 当 schema 不可用时，会注册以下核心工具：
 
-| 工具 | 描述 |
-|------|------|
+| 工具        | 描述                             |
+|-------------|----------------------------------|
 | `lx-status` | 检查 CLI 状态、安装、同步 schema |
-| `lx-search` | 关键词搜索 |
-| `lx-whoami` | 当前用户信息 |
+| `lx-search` | 关键词搜索                       |
+| `lx-whoami` | 当前用户信息                     |
 
 ## 二进制查找顺序
 
@@ -106,7 +106,7 @@ pnpm run dev
 
 在 GitHub Releases 中上传以下格式的文件：
 
-```
+```text
 lx-aarch64-apple-darwin.tar.gz    # macOS Apple Silicon
 lx-x86_64-apple-darwin.tar.gz     # macOS Intel
 lx-x86_64-unknown-linux-gnu.tar.gz # Linux

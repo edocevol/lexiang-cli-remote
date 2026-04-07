@@ -4,7 +4,7 @@
 
 ## 项目结构
 
-```
+```text
 packages/cli/
 ├── src/
 │   ├── main.rs              # CLI 入口
@@ -41,7 +41,7 @@ packages/cli/
 
 ### 三层命令架构
 
-```
+```text
 ┌─────────────────────────────────────────┐
 │  Layer 3: Dynamic Commands              │
 │  - lx team list                         │
@@ -98,7 +98,10 @@ pub struct RuntimeSchemaManager {
 
 impl RuntimeSchemaManager {
     pub fn load(&self) -> Result<Option<McpSchemaCollection>>;
-    pub async fn sync_from_server(&self, client: &McpClient) -> Result<McpSchemaCollection>;
+    pub async fn sync_from_server(
+        &self,
+        client: &McpClient
+    ) -> Result<McpSchemaCollection>;
     pub fn save(&self, schema: &McpSchemaCollection) -> Result<()>;
 }
 ```
@@ -114,7 +117,11 @@ pub struct CommandGenerator<'a> {
 
 impl<'a> CommandGenerator<'a> {
     pub fn generate_namespaces(&self) -> Vec<Command>;
-    pub fn generate_tool_command(&self, tool: &McpCategoryTool, namespace: &str) -> Command;
+    pub fn generate_tool_command(
+        &self,
+        tool: &McpCategoryTool,
+        namespace: &str
+    ) -> Command;
 }
 ```
 
@@ -140,9 +147,13 @@ async fn handle_dynamic_command(
 
 ```rust
 impl TokenStore {
-    pub fn save(token: &TokenData) -> Result<()>;  // ~/.lexiang/auth/{company}.json
+    // ~/.lexiang/auth/{company}.json
+    pub fn save(token: &TokenData) -> Result<()>;
     pub fn load(company_from: &str) -> Result<Option<TokenData>>;
-    pub async fn get_valid_token(company_from: &str) -> Result<Option<TokenData>>; // 自动 refresh
+    // 自动 refresh
+    pub async fn get_valid_token(
+        company_from: &str
+    ) -> Result<Option<TokenData>>;
 }
 ```
 
@@ -177,7 +188,8 @@ MCP Server 添加新分类后：
 lx tools sync
 
 # 2. 复制到源码目录
-cp ~/.lexiang/tools/override.json src/mcp/schema/embedded_schema.json
+cp ~/.lexiang/tools/override.json \
+  src/mcp/schema/embedded_schema.json
 
 # 3. 重新构建
 cargo build --release
@@ -229,22 +241,29 @@ cargo build --release
 ## 常见问题
 
 ### Q: 动态命令如何知道有哪些 namespace？
+
 A: 按以下优先级加载 schema：
+
 1. 优先从 `~/.lexiang/tools/override.json` 加载（如果存在）
 2. 否则使用编译时嵌入的 `embedded_schema.json`
 
 解析其中的 categories 获取所有 namespace。
 
 ### Q: 如何支持新的参数类型？
+
 A: 在 `generator.rs` 的 `create_argument` 中添加类型映射：
+
 ```rust
 match type_str {
     "boolean" => arg.action(ArgAction::SetTrue),
     "array" => arg.action(ArgAction::Append),
-    "integer" | "number" => arg.value_parser(clap::value_parser!(i64)),
+    "integer" | "number" => {
+        arg.value_parser(clap::value_parser!(i64))
+    }
     _ => {} // string default
 }
 ```
 
 ### Q: Token 过期如何处理？
+
 A: `TokenStore::get_valid_token()` 会自动检查过期时间，如果过期且有 refresh_token，会自动刷新。

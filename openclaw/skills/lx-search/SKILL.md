@@ -1,7 +1,11 @@
+# lx-search Skill
+
 ---
+
 name: lx-search
 description: |
-  在乐享知识库中搜索内容，支持关键词搜索和语义搜索。
+  在乐享知识库中搜索内容，支持关键词搜索和语义搜索
+
 ---
 
 **当以下情况时使用此 Skill**:
@@ -13,9 +17,9 @@ description: |
 
 ## 工具一：lx-search（关键词搜索）
 
-精确匹配关键词。
+精确匹配关键词
 
-### 参数
+### 参数（关键词搜索）
 
 - **keyword** (string, required): 搜索关键词
 - **type** (string): 搜索类型：all / doc / space / folder / file / page 等
@@ -26,7 +30,7 @@ description: |
 - **limit** (number): 结果数量
 - **page_token** (string): 翻页 token
 
-### 示例
+### 示例（关键词搜索）
 
 ```json
 lx-search: { "keyword": "项目计划" }
@@ -34,9 +38,9 @@ lx-search: { "keyword": "项目计划" }
 
 ## 工具二：lx-embedding-search（语义搜索）
 
-基于向量的语义相似度匹配，适用于模糊查询。
+基于向量的语义相似度匹配，适用于模糊查询
 
-### 参数
+### 参数（语义搜索）
 
 - **keyword** (string, required): 搜索语句
 - **space_id** (string): 限定知识库
@@ -44,7 +48,7 @@ lx-search: { "keyword": "项目计划" }
 - **parent_id** (string): 限定父节点
 - **limit** (number): 结果数量
 
-### 示例
+### 示例（语义搜索）
 
 ```json
 lx-embedding-search: { "keyword": "如何申请服务器资源" }
@@ -52,7 +56,7 @@ lx-embedding-search: { "keyword": "如何申请服务器资源" }
 
 ## 选择建议
 
-| 场景 | 推荐工具 |
-|------|---------|
-| 精确查找已知关键词 | lx-search |
+| 场景               | 推荐工具            |
+|--------------------|---------------------|
+| 精确查找已知关键词 | lx-search           |
 | 模糊查询、语义匹配 | lx-embedding-search |

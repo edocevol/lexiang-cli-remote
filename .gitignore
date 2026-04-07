@@ -29,3 +29,7 @@ coverage/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+
+# Agent
+docs/plans

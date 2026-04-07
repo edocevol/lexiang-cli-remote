@@ -4,12 +4,14 @@ mod config;
 mod daemon;
 mod datadir;
 pub mod shell;
+mod update;
 mod vfs;
 mod worktree;
 
 mod json_rpc;
 
 mod mcp;
+mod version;
 
 use clap::Parser;
 use cmd::{Cli, Commands};
@@ -44,6 +46,20 @@ async fn main() -> anyhow::Result<()> {
                 // 这是一个动态命令，构建并执行
                 return cmd::handle_dynamic_command(&args, schema).await;
             }
+
+            // 不是已知 namespace，尝试当作子命令在所有 namespace 中查找唯一匹配
+            // 例如 `lx whoami` -> `lx contact whoami`
+            if let Some(resolved) = schema.resolve_unique_subcommand(potential_namespace) {
+                let mut new_args = Vec::with_capacity(args.len() + 1);
+                new_args.push(args[0].clone()); // "lx"
+                new_args.push(resolved.namespace.clone()); // 自动插入 namespace
+                new_args.extend_from_slice(&args[1..]); // 原始子命令及后续参数
+                eprintln!(
+                    "hint: `lx {}` resolved to `lx {} {}`",
+                    potential_namespace, resolved.namespace, potential_namespace
+                );
+                return cmd::handle_dynamic_command(&new_args, schema).await;
+            }
         }
     }
 
@@ -53,7 +69,9 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Some(Commands::Version) => {
-            println!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+            println!("{} v{}", env!("CARGO_PKG_NAME"), crate::version::current_version());
+            // 版本命令后自动检查更新
+            cmd::auto_check_update().await;
         }
         Some(Commands::Login) => {
             let _token = auth::login().await?;
@@ -103,6 +121,18 @@ async fn main() -> anyhow::Result<()> {
             cmd::ToolsCommands::List { category } => cmd::handle_list(category.as_deref())?,
             cmd::ToolsCommands::Skill { output } => cmd::handle_skill(output.as_deref())?,
         },
+        Some(Commands::Update { command }) => match command {
+            Some(cmd::UpdateCommands::Check { prerelease }) => {
+                cmd::handle_update_check(prerelease).await?;
+            }
+            Some(cmd::UpdateCommands::List { limit }) => {
+                cmd::handle_update_list(limit).await?;
+            }
+            None => {
+                // 默认行为：检查更新
+                cmd::handle_update_check(false).await?;
+            }
+        },
         Some(Commands::Worktree { command }) => {
             cmd::git::handle_workspace_command(command, &config).await?;
         }
@@ -130,7 +160,11 @@ async fn main() -> anyhow::Result<()> {
                 cmd::start_repl(&config, space.as_deref(), path.as_deref()).await?;
             }
         }
-        None => println!("Use 'lx --help' for usage"),
+        None => {
+            println!("Use 'lx --help' for usage");
+            // 无命令时也检查更新
+            cmd::auto_check_update().await;
+        }
     }
 
     Ok(())

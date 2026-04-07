@@ -56,6 +56,11 @@ pub enum Commands {
     Status,
     /// Print version
     Version,
+    /// Check for updates from GitHub releases
+    Update {
+        #[command(subcommand)]
+        command: Option<UpdateCommands>,
+    },
     /// Virtual shell for knowledge base exploration
     ///
     /// Without arguments, detects worktree from current directory (like git).
@@ -261,6 +266,22 @@ pub enum GitCommands {
         /// Show verbose output (-v)
         #[arg(short, long)]
         verbose: bool,
+    },
+}
+
+#[derive(clap::Subcommand)]
+pub enum UpdateCommands {
+    /// Check if a new version is available
+    Check {
+        /// Include prerelease versions
+        #[arg(long)]
+        prerelease: bool,
+    },
+    /// List recent releases
+    List {
+        /// Number of releases to show
+        #[arg(short, long, default_value = "5")]
+        limit: usize,
     },
 }
 

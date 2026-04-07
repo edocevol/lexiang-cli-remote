@@ -12,6 +12,36 @@ use std::path::PathBuf;
 /// 数据目录名
 const DATA_DIR_NAME: &str = ".lexiang";
 
+/// 数据目录管理器
+#[derive(Debug, Clone)]
+pub struct DataDir {
+    path: PathBuf,
+}
+
+impl DataDir {
+    /// 创建数据目录管理器
+    pub fn new(path: PathBuf) -> Self {
+        Self { path }
+    }
+
+    /// 获取数据目录路径
+    pub fn path(&self) -> &PathBuf {
+        &self.path
+    }
+
+    /// 确保目录存在
+    #[allow(dead_code)]
+    pub fn ensure(&self) -> std::io::Result<()> {
+        fs::create_dir_all(&self.path)
+    }
+}
+
+impl Default for DataDir {
+    fn default() -> Self {
+        Self::new(datadir())
+    }
+}
+
 /// 获取统一数据目录路径 `~/.lexiang/`
 pub fn datadir() -> PathBuf {
     let home = dirs::home_dir().expect("Cannot determine home directory");
