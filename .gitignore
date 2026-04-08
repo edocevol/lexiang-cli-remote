@@ -32,4 +32,5 @@ pnpm-debug.log*
 
 
 # Agent
-docs/plans
+docs/plans.worktrees/
+.worktrees/
