@@ -16,9 +16,19 @@
 
 ## 📦 安装
 
+### 一键安装（推荐）
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tencent-lexiang/lexiang-cli/main/install.sh | bash
+```
+
+自定义安装目录：`curl -fsSL https://raw.githubusercontent.com/tencent-lexiang/lexiang-cli/main/install.sh | bash -s -- --dir /usr/local/bin`
+
+### 从 Release 下载
+
 [🚀最新下载地址](https://github.com/tencent-lexiang/lexiang-cli/releases)
 
-或从源码安装（需要 Rust 1.70+）：
+### 从源码安装（需要 Rust 1.70+）
 
 ```bash
 git clone https://github.com/tencent-lexiang/lexiang-cli.git
