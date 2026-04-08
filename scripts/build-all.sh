@@ -109,9 +109,13 @@ build_macos() {
 
 # 构建 Linux 目标
 build_linux() {
-    # x86_64 可以在 macOS 上用 cross 构建
+    # glibc (dynamic)
     build_target "x86_64-unknown-linux-gnu" "true" "lx-linux-x86_64"
     build_target "aarch64-unknown-linux-gnu" "true" "lx-linux-arm64"
+
+    # musl (static - no glibc dependency)
+    build_target "x86_64-unknown-linux-musl" "true" "lx-linux-x86_64-musl"
+    build_target "aarch64-unknown-linux-musl" "true" "lx-linux-arm64-musl"
 }
 
 # 构建 Windows 目标
