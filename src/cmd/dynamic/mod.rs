@@ -3,7 +3,7 @@ use crate::mcp;
 use crate::mcp::schema::{build_tool_args, CommandGenerator, McpSchemaCollection};
 use anyhow::Result;
 
-use super::output::{print_csv, print_markdown, print_table};
+use super::output::{print_csv, print_markdown, print_table, FieldFilter};
 
 pub async fn handle_dynamic_command(args: &[String], schema: &McpSchemaCollection) -> Result<()> {
     let config = Config::load()?;
@@ -44,12 +44,19 @@ pub async fn handle_dynamic_command(args: &[String], schema: &McpSchemaCollectio
         .map(std::string::String::as_str)
         .unwrap_or("json-pretty");
 
+    // Build field filter from --fields and --all-fields flags
+    let fields: Option<Vec<String>> = tool_matches
+        .get_one::<String>("fields")
+        .map(|s| s.split(',').map(|f| f.trim().to_string()).collect());
+    let all_fields = tool_matches.get_flag("all_fields");
+    let filter = FieldFilter::new(fields, all_fields);
+
     match format {
         "json" => println!("{}", result),
-        "table" => print_table(&result),
+        "table" => print_table(&result, &filter),
         "yaml" => println!("{}", serde_yaml::to_string(&result)?),
-        "csv" => print_csv(&result),
-        "markdown" => print_markdown(&result),
+        "csv" => print_csv(&result, &filter),
+        "markdown" => print_markdown(&result, &filter),
         _ => println!("{}", serde_json::to_string_pretty(&result)?),
     }
 
