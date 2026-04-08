@@ -209,7 +209,20 @@ fn format_value(value: &Value) -> String {
     match value {
         Value::Null => String::new(),
         Value::Bool(b) => b.to_string(),
-        Value::Number(n) => n.to_string(),
+        Value::Number(n) => {
+            // 自动检测 Unix 时间戳（10 位数字，合理范围 2001-2040）
+            if let Some(ts) = n.as_i64() {
+                if ts > 1_000_000_000 && ts < 2_200_000_000 {
+                    if let Some(dt) = chrono::DateTime::from_timestamp(ts, 0) {
+                        return dt
+                            .with_timezone(&chrono::Local)
+                            .format("%Y-%m-%d %H:%M")
+                            .to_string();
+                    }
+                }
+            }
+            n.to_string()
+        }
         Value::String(s) => s.clone(),
         Value::Array(arr) => {
             let items: Vec<String> = arr.iter().map(format_value).collect();

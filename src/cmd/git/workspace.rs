@@ -1,3 +1,4 @@
+use crate::cmd::ui;
 use crate::config::Config;
 use crate::mcp::McpClient;
 use crate::worktree::{self, Repository, WorktreeConfig, WorktreeRecord, WorktreeRegistry};
@@ -7,8 +8,8 @@ use std::path::PathBuf;
 
 use super::{
     create_page_with_content, extract_root_entry_id, extract_space_name, find_worktree_path,
-    pull_entries_recursive, pull_page_content, push_page_content, update_file_content,
-    upload_new_file,
+    pull_entries_recursive, pull_page_content, push_page_content, truncate_path,
+    update_file_content, upload_new_file,
 };
 use crate::cmd::cli::WorktreeCommands;
 
@@ -49,8 +50,7 @@ async fn handle_add(
         anyhow::bail!("Directory already exists: {}", path);
     }
 
-    println!("Creating worktree at: {}", path);
-    println!("Space ID: {}", space_id);
+    let sp = ui::spinner("正在连接远端...");
 
     std::fs::create_dir_all(&worktree_path)?;
 
@@ -67,17 +67,17 @@ async fn handle_add(
     let space_name = extract_space_name(&space_result, &space_id);
     let root_entry_id = extract_root_entry_id(&space_result)?;
 
-    println!("Space name: {}", space_name);
+    sp.set_message(format!("正在检出 {} ...", space_name));
 
     let mut wt_config = WorktreeConfig::new(space_id.clone(), space_name.clone());
 
     let config_dir = worktree_path.join(".lxworktree");
     std::fs::create_dir_all(&config_dir)?;
 
-    println!("Initializing git repository...");
+    sp.set_message("初始化 git 仓库...");
     let mut repo = Repository::init(&worktree_path)?;
 
-    println!("Fetching entries from remote...");
+    sp.set_message("正在拉取远端文件...");
 
     let entries_to_fetch: Vec<String> = if let Some(ids) = entry_ids {
         ids.split(',').map(|s| s.trim().to_string()).collect()
@@ -96,6 +96,7 @@ async fn handle_add(
             "",
             &mut entries_map,
             &mut stats,
+            None,
         )
         .await?;
     } else {
@@ -146,6 +147,7 @@ async fn handle_add(
                                 &filename,
                                 &mut entries_map,
                                 &mut stats,
+                                None,
                             )
                             .await?;
                         }
@@ -192,6 +194,10 @@ async fn handle_add(
 
     wt_config.save(&worktree_path)?;
 
+    sp.finish_and_clear();
+
+    ui::print_header("Checked out", &format!("'{}'", path), &space_name);
+
     let record = WorktreeRecord {
         path: worktree_path.canonicalize()?.to_string_lossy().to_string(),
         space_id,
@@ -202,24 +208,14 @@ async fn handle_add(
     let mut registry = WorktreeRegistry::load()?;
     registry.register(record)?;
 
-    println!();
-    println!("Initial checkout complete:");
-    println!("  Folders: {}", stats.folders_created);
-    println!("  Pages:   {}", stats.pages_pulled);
-    println!("  Files:   {}", stats.files_pulled);
-    if !stats.errors.is_empty() {
-        println!("  Errors:  {}", stats.errors.len());
-        for err in &stats.errors {
-            eprintln!("    - {}", err);
-        }
-    }
-
     let canonical_path = worktree_path.canonicalize()?;
-    println!();
-    println!("Worktree created successfully!");
-    println!();
-    println!("To enter the worktree, run:");
-    println!("  cd {}", canonical_path.display());
+    ui::print_worktree_add_complete(
+        stats.folders_created,
+        stats.pages_pulled,
+        stats.files_pulled,
+        &stats.errors,
+        &canonical_path.display().to_string(),
+    );
 
     Ok(())
 }
@@ -228,22 +224,21 @@ fn handle_list(format: &str) -> Result<()> {
     let registry = WorktreeRegistry::load()?;
     let worktrees = registry.list();
 
-    if worktrees.is_empty() {
-        println!("No worktrees registered.");
-        return Ok(());
-    }
-
     match format {
         "json" => {
-            println!("{}", serde_json::to_string_pretty(&worktrees)?);
+            ui::line(&serde_json::to_string_pretty(&worktrees)?);
         }
         _ => {
-            println!("Worktrees ({}):", worktrees.len());
-            for wt in worktrees {
-                println!("  {} ({})", wt.path, wt.space_name);
-                println!("    Space ID: {}", wt.space_id);
-                println!("    Created: {}", wt.created_at);
-            }
+            let items: Vec<ui::WorktreeItem> = worktrees
+                .iter()
+                .map(|wt| ui::WorktreeItem {
+                    path: &wt.path,
+                    space_name: &wt.space_name,
+                    space_id: &wt.space_id,
+                    created_at: &wt.created_at,
+                })
+                .collect();
+            ui::print_worktree_list(&items);
         }
     }
 
@@ -265,16 +260,16 @@ fn handle_remove(path: &str, yes: bool) -> Result<()> {
 
     if let Ok(repo) = Repository::open(&canonical_path) {
         if repo.has_uncommitted_changes()? && !yes {
-            println!("Warning: Worktree has uncommitted changes!");
+            ui::warn("Warning: Worktree has uncommitted changes!");
         }
     }
 
     if !yes {
-        print!("Remove worktree {}? [y/N] ", path);
+        ui::prompt(&format!("Remove worktree {}? [y/N] ", path));
         let mut input = String::new();
         std::io::stdin().read_line(&mut input)?;
         if !input.trim().eq_ignore_ascii_case("y") {
-            println!("Aborted.");
+            ui::dim("Aborted.");
             return Ok(());
         }
     }
@@ -284,7 +279,7 @@ fn handle_remove(path: &str, yes: bool) -> Result<()> {
 
     registry.unregister(&path_str)?;
 
-    println!("Worktree removed: {}", path);
+    ui::success(&format!("Worktree removed: {}", path));
 
     Ok(())
 }
@@ -294,44 +289,13 @@ fn handle_status() -> Result<()> {
     let repo = Repository::open(&worktree_path)?;
     let status = repo.status()?;
 
-    println!("Worktree: {}", worktree_path.display());
-
-    if status.staged.is_empty()
-        && status.modified.is_empty()
-        && status.deleted.is_empty()
-        && status.untracked.is_empty()
-    {
-        println!("Working tree clean.");
-        return Ok(());
-    }
-
-    if !status.staged.is_empty() {
-        println!("\nStaged:");
-        for f in &status.staged {
-            println!("  + {}", f);
-        }
-    }
-
-    if !status.modified.is_empty() {
-        println!("\nModified:");
-        for f in &status.modified {
-            println!("  M {}", f);
-        }
-    }
-
-    if !status.deleted.is_empty() {
-        println!("\nDeleted:");
-        for f in &status.deleted {
-            println!("  D {}", f);
-        }
-    }
-
-    if !status.untracked.is_empty() {
-        println!("\nUntracked:");
-        for f in &status.untracked {
-            println!("  ? {}", f);
-        }
-    }
+    ui::kv("Worktree", &worktree_path.display().to_string());
+    ui::print_status(&ui::StatusOutput {
+        staged: status.staged,
+        modified: status.modified,
+        deleted: status.deleted,
+        untracked: status.untracked,
+    });
 
     Ok(())
 }
@@ -341,8 +305,8 @@ async fn handle_diff(format: &str, remote: bool, config: &Config) -> Result<()> 
     let wt_config = WorktreeConfig::load(&worktree_path)?;
 
     if remote {
-        println!("Comparing local with remote...");
-        println!("Space: {} ({})", wt_config.space_name, wt_config.space_id);
+        ui::info("Comparing local with remote...");
+        ui::print_header("Space", &wt_config.space_name, &wt_config.space_id);
 
         let access_token = crate::auth::get_access_token(config).await?;
         let client = McpClient::new(&config.mcp.url, Some(access_token))?;
@@ -377,8 +341,7 @@ async fn handle_diff(format: &str, remote: bool, config: &Config) -> Result<()> 
                         modified.push(local_path.clone());
 
                         if format == "full" {
-                            println!("\n--- remote: {}", local_path);
-                            println!("+++ local:  {}", local_path);
+                            ui::print_diff_header("remote", "local", local_path);
                             let remote_lines: Vec<&str> = remote_content.lines().collect();
                             let local_lines: Vec<&str> = local_content.lines().collect();
                             print_simple_diff(&remote_lines, &local_lines);
@@ -386,7 +349,7 @@ async fn handle_diff(format: &str, remote: bool, config: &Config) -> Result<()> 
                     }
                 }
                 Err(e) => {
-                    eprintln!("  Warning: Failed to fetch {}: {}", local_path, e);
+                    ui::warn(&format!("  Failed to fetch {}: {}", local_path, e));
                 }
             }
         }
@@ -415,65 +378,16 @@ async fn handle_diff(format: &str, remote: bool, config: &Config) -> Result<()> 
             }
         }
 
-        println!();
-        if added_local.is_empty() && modified.is_empty() && deleted_local.is_empty() {
-            println!("No differences with remote.");
-        } else {
-            if !added_local.is_empty() {
-                println!("New locally ({}):", added_local.len());
-                for f in &added_local {
-                    println!("  + {}", f);
-                }
-            }
-            if !modified.is_empty() {
-                println!("Modified ({}):", modified.len());
-                for f in &modified {
-                    println!("  M {}", f);
-                }
-            }
-            if !deleted_local.is_empty() {
-                println!("Deleted locally ({}):", deleted_local.len());
-                for f in &deleted_local {
-                    println!("  - {}", f);
-                }
-            }
-        }
+        ui::print_remote_diff(&added_local, &modified, &deleted_local);
     } else {
         let repo = Repository::open(&worktree_path)?;
         let status = repo.status()?;
-
-        if status.staged.is_empty()
-            && status.modified.is_empty()
-            && status.deleted.is_empty()
-            && status.untracked.is_empty()
-        {
-            println!("Working tree clean.");
-        } else {
-            if !status.staged.is_empty() {
-                println!("Staged:");
-                for f in &status.staged {
-                    println!("  A {}", f);
-                }
-            }
-            if !status.modified.is_empty() {
-                println!("Modified:");
-                for f in &status.modified {
-                    println!("  M {}", f);
-                }
-            }
-            if !status.deleted.is_empty() {
-                println!("Deleted:");
-                for f in &status.deleted {
-                    println!("  D {}", f);
-                }
-            }
-            if !status.untracked.is_empty() {
-                println!("Untracked:");
-                for f in &status.untracked {
-                    println!("  ? {}", f);
-                }
-            }
-        }
+        ui::print_status(&ui::StatusOutput {
+            staged: status.staged,
+            modified: status.modified,
+            deleted: status.deleted,
+            untracked: status.untracked,
+        });
     }
 
     Ok(())
@@ -488,13 +402,13 @@ fn handle_commit(message: &str, all: bool) -> Result<()> {
     } else {
         let status = repo.status()?;
         if status.staged.is_empty() {
-            println!("Nothing to commit. Use --all to stage all changes.");
+            ui::dim("Nothing to commit. Use --all to stage all changes.");
             return Ok(());
         }
         repo.add_and_commit(message)?
     };
 
-    println!("Committed: {}", commit_id);
+    ui::print_committed(&commit_id[..8]);
 
     Ok(())
 }
@@ -505,10 +419,12 @@ fn handle_log(limit: usize) -> Result<()> {
     let commits = repo.log(Some(limit))?;
 
     for commit in commits {
-        println!("{} {}", &commit.hash[..8], commit.message);
-        println!("  Author: {}", commit.author);
-        println!("  Date:   {}", commit.date);
-        println!();
+        ui::print_log_entry(
+            &commit.hash[..8],
+            &commit.message,
+            &commit.author,
+            &commit.date,
+        );
     }
 
     Ok(())
@@ -519,17 +435,17 @@ fn handle_reset(commitish: &str, hard: bool) -> Result<()> {
     let mut repo = Repository::open(&worktree_path)?;
 
     if hard {
-        print!("Hard reset will discard all working directory changes. Continue? [y/N] ");
+        ui::prompt("Hard reset will discard all working directory changes. Continue? [y/N] ");
         let mut input = String::new();
         std::io::stdin().read_line(&mut input)?;
         if !input.trim().eq_ignore_ascii_case("y") {
-            println!("Aborted.");
+            ui::dim("Aborted.");
             return Ok(());
         }
     }
 
     repo.reset(commitish, hard)?;
-    println!("Reset to: {}", commitish);
+    ui::print_reset_result(commitish, hard);
 
     Ok(())
 }
@@ -538,8 +454,8 @@ async fn handle_pull(config: &Config) -> Result<()> {
     let worktree_path = find_worktree_path()?;
     let wt_config = WorktreeConfig::load(&worktree_path)?;
 
-    println!("Pulling from remote...");
-    println!("Space: {} ({})", wt_config.space_name, wt_config.space_id);
+    let sp = ui::spinner("正在拉取...");
+    ui::print_header("Pulling from", &wt_config.space_name, &wt_config.space_id);
 
     let access_token = crate::auth::get_access_token(config).await?;
     let client = McpClient::new(&config.mcp.url, Some(access_token))?;
@@ -563,6 +479,7 @@ async fn handle_pull(config: &Config) -> Result<()> {
         "",
         &mut entries_map,
         &mut stats,
+        Some(&sp),
     )
     .await?;
 
@@ -579,20 +496,18 @@ async fn handle_pull(config: &Config) -> Result<()> {
             stats.files_pulled
         );
         let commit_id = repo.add_and_commit(&commit_message)?;
-        println!("Committed: {}", &commit_id[..8]);
+        sp.finish_and_clear();
+        ui::print_committed(&commit_id[..8]);
+    } else {
+        sp.finish_and_clear();
     }
 
-    println!();
-    println!("Pull complete:");
-    println!("  Folders: {}", stats.folders_created);
-    println!("  Pages:   {}", stats.pages_pulled);
-    println!("  Files:   {}", stats.files_pulled);
-    if !stats.errors.is_empty() {
-        println!("  Errors:  {}", stats.errors.len());
-        for err in &stats.errors {
-            eprintln!("    - {}", err);
-        }
-    }
+    ui::print_pull_stats(
+        stats.folders_created,
+        stats.pages_pulled,
+        stats.files_pulled,
+        &stats.errors,
+    );
 
     Ok(())
 }
@@ -601,8 +516,7 @@ async fn handle_push(config: &Config, dry_run: bool, force: bool) -> Result<()> 
     let worktree_path = find_worktree_path()?;
     let wt_config = WorktreeConfig::load(&worktree_path)?;
 
-    println!("Pushing to remote...");
-    println!("Space: {} ({})", wt_config.space_name, wt_config.space_id);
+    ui::print_header("Pushing to", &wt_config.space_name, &wt_config.space_id);
 
     let repo = Repository::open(&worktree_path)?;
     if repo.has_uncommitted_changes()? && !force {
@@ -760,88 +674,136 @@ async fn handle_push(config: &Config, dry_run: bool, force: bool) -> Result<()> 
         }
     }
 
-    for (entry_id, old_name, new_name) in &to_rename {
-        if dry_run {
-            println!("  [RENAME] {} -> {}", old_name, new_name);
-        } else {
-            match rename_entry(&client, entry_id, new_name).await {
-                Ok(_) => {
-                    println!("  Renamed: {} -> {}", old_name, new_name);
-                    stats.entries_updated += 1;
-                }
-                Err(e) => {
-                    stats.errors.push(format!("rename {}: {}", old_name, e));
-                }
+    let total_ops =
+        to_rename.len() + to_move.len() + to_update.len() + to_delete.len() + to_create.len();
+    let mut created_paths: Vec<String> = Vec::new();
+    let mut updated_paths: Vec<String> = Vec::new();
+    let mut deleted_paths: Vec<String> = Vec::new();
+
+    // dry-run 模式
+    if dry_run {
+        ui::print_dry_run_header(total_ops, "");
+        for (_id, old_name, new_name) in &to_rename {
+            ui::print_dry_run_item("RENAME", &format!("{} -> {}", old_name, new_name));
+        }
+        for (_id, old_path, new_parent_id) in &to_move {
+            ui::print_dry_run_item("MOVE", &format!("{} -> parent:{}", old_path, new_parent_id));
+        }
+        for (_id, path) in &to_update {
+            ui::print_dry_run_item("UPDATE", path);
+        }
+        for (_id, path) in &to_delete {
+            ui::print_dry_run_item("DELETE", path);
+        }
+        for path in &to_create {
+            if path.ends_with(".md") {
+                ui::print_dry_run_item("CREATE PAGE", path);
+            } else {
+                ui::print_dry_run_item("CREATE FILE", path);
             }
+        }
+        ui::print_dry_run_complete();
+        return Ok(());
+    }
+
+    // 实际推送
+    let pb = if total_ops > 0 {
+        Some(ui::progress_bar(total_ops as u64, "推送中..."))
+    } else {
+        None
+    };
+
+    for (entry_id, old_name, new_name) in &to_rename {
+        if let Some(ref pb) = pb {
+            pb.set_message(format!("重命名 {}", truncate_path(old_name, 30)));
+        }
+        match rename_entry(&client, entry_id, new_name).await {
+            Ok(_) => {
+                stats.entries_updated += 1;
+                updated_paths.push(format!("{} → {}", old_name, new_name));
+            }
+            Err(e) => {
+                stats.errors.push(format!("rename {}: {}", old_name, e));
+            }
+        }
+        if let Some(ref pb) = pb {
+            pb.inc(1);
         }
     }
 
     for (entry_id, old_path, new_parent_id) in &to_move {
-        if dry_run {
-            println!("  [MOVE] {} -> parent:{}", old_path, new_parent_id);
-        } else {
-            match move_entry(&client, entry_id, new_parent_id).await {
-                Ok(_) => {
-                    println!("  Moved: {}", old_path);
-                    stats.entries_updated += 1;
-                }
-                Err(e) => {
-                    stats.errors.push(format!("move {}: {}", old_path, e));
-                }
+        if let Some(ref pb) = pb {
+            pb.set_message(format!("移动 {}", truncate_path(old_path, 30)));
+        }
+        match move_entry(&client, entry_id, new_parent_id).await {
+            Ok(_) => {
+                stats.entries_updated += 1;
+                updated_paths.push(format!("{} (moved)", old_path));
             }
+            Err(e) => {
+                stats.errors.push(format!("move {}: {}", old_path, e));
+            }
+        }
+        if let Some(ref pb) = pb {
+            pb.inc(1);
         }
     }
 
     for (entry_id, path) in &to_update {
         let full_path = worktree_path.join(path);
         if !full_path.exists() {
+            if let Some(ref pb) = pb {
+                pb.inc(1);
+            }
             continue;
+        }
+
+        if let Some(ref pb) = pb {
+            pb.set_message(truncate_path(path, 40));
         }
 
         if path.ends_with(".md") {
             let content = std::fs::read_to_string(&full_path)?;
-
-            if dry_run {
-                println!("  [UPDATE] {} -> {}", path, entry_id);
-            } else {
-                match push_page_content(&client, entry_id, &content).await {
-                    Ok(_) => {
-                        println!("  Updated: {}", path);
-                        stats.entries_updated += 1;
-                    }
-                    Err(e) => {
-                        stats.errors.push(format!("{}: {}", path, e));
-                    }
+            match push_page_content(&client, entry_id, &content).await {
+                Ok(_) => {
+                    stats.entries_updated += 1;
+                    updated_paths.push(path.clone());
+                }
+                Err(e) => {
+                    stats.errors.push(format!("{}: {}", path, e));
                 }
             }
-        } else if dry_run {
-            println!("  [UPDATE FILE] {} -> {}", path, entry_id);
         } else {
             match update_file_content(&client, entry_id, &full_path).await {
                 Ok(_) => {
-                    println!("  Updated file: {}", path);
                     stats.entries_updated += 1;
+                    updated_paths.push(path.clone());
                 }
                 Err(e) => {
                     stats.errors.push(format!("{}: {}", path, e));
                 }
             }
         }
+        if let Some(ref pb) = pb {
+            pb.inc(1);
+        }
     }
 
     for (entry_id, path) in &to_delete {
-        if dry_run {
-            println!("  [DELETE] {}", path);
-        } else {
-            match delete_entry(&client, entry_id).await {
-                Ok(_) => {
-                    println!("  Deleted: {}", path);
-                    stats.entries_deleted += 1;
-                }
-                Err(e) => {
-                    stats.errors.push(format!("delete {}: {}", path, e));
-                }
+        if let Some(ref pb) = pb {
+            pb.set_message(format!("删除 {}", truncate_path(path, 30)));
+        }
+        match delete_entry(&client, entry_id).await {
+            Ok(_) => {
+                stats.entries_deleted += 1;
+                deleted_paths.push(path.clone());
             }
+            Err(e) => {
+                stats.errors.push(format!("delete {}: {}", path, e));
+            }
+        }
+        if let Some(ref pb) = pb {
+            pb.inc(1);
         }
     }
 
@@ -858,17 +820,11 @@ async fn handle_push(config: &Config, dry_run: bool, force: bool) -> Result<()> 
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_default();
 
-        // 确保父文件夹在远程存在
-        let parent_entry_id = if dry_run {
-            if parent_dir.is_empty() {
-                root_entry_id.clone()
-            } else {
-                entries_map
-                    .get(&parent_dir)
-                    .map(|info| info.entry_id.clone())
-                    .unwrap_or_else(|| root_entry_id.clone())
-            }
-        } else {
+        if let Some(ref pb) = pb {
+            pb.set_message(truncate_path(path, 40));
+        }
+
+        let parent_entry_id =
             match ensure_parent_folders(&client, &root_entry_id, &parent_dir, &mut entries_map)
                 .await
             {
@@ -877,10 +833,12 @@ async fn handle_push(config: &Config, dry_run: bool, force: bool) -> Result<()> 
                     stats
                         .errors
                         .push(format!("{}: failed to create parent folder: {}", path, e));
+                    if let Some(ref pb) = pb {
+                        pb.inc(1);
+                    }
                     continue;
                 }
-            }
-        };
+            };
 
         if path.ends_with(".md") {
             let page_name = full_path
@@ -889,36 +847,28 @@ async fn handle_push(config: &Config, dry_run: bool, force: bool) -> Result<()> 
                 .unwrap_or_default();
             let content = std::fs::read_to_string(&full_path)?;
 
-            if dry_run {
-                println!("  [CREATE PAGE] {}", path);
-            } else {
-                match create_page_with_content(&client, &parent_entry_id, &page_name, &content)
-                    .await
-                {
-                    Ok(new_entry_id) => {
-                        println!("  Created page: {} ({})", path, new_entry_id);
-                        stats.entries_created += 1;
+            match create_page_with_content(&client, &parent_entry_id, &page_name, &content).await {
+                Ok(new_entry_id) => {
+                    stats.entries_created += 1;
+                    created_paths.push(path.clone());
 
-                        worktree::EntriesManager::add(
-                            &mut entries_map,
-                            path.clone(),
-                            new_entry_id,
-                            worktree::EntryType::Page,
-                            None,
-                        );
-                    }
-                    Err(e) => {
-                        stats.errors.push(format!("{}: {}", path, e));
-                    }
+                    worktree::EntriesManager::add(
+                        &mut entries_map,
+                        path.clone(),
+                        new_entry_id,
+                        worktree::EntryType::Page,
+                        None,
+                    );
+                }
+                Err(e) => {
+                    stats.errors.push(format!("{}: {}", path, e));
                 }
             }
-        } else if dry_run {
-            println!("  [CREATE FILE] {}", path);
         } else {
             match upload_new_file(&client, &parent_entry_id, &full_path, Some(&entry_name)).await {
                 Ok(new_entry_id) => {
-                    println!("  Uploaded: {} ({})", path, new_entry_id);
                     stats.entries_created += 1;
+                    created_paths.push(path.clone());
 
                     worktree::EntriesManager::add(
                         &mut entries_map,
@@ -933,27 +883,26 @@ async fn handle_push(config: &Config, dry_run: bool, force: bool) -> Result<()> 
                 }
             }
         }
-    }
-
-    if !dry_run {
-        worktree::EntriesManager::save(&worktree_path, &entries_map)?;
-    }
-
-    println!();
-    if dry_run {
-        println!("Dry run complete. No changes made.");
-    } else {
-        println!("Push complete:");
-        println!("  Created: {}", stats.entries_created);
-        println!("  Updated: {}", stats.entries_updated);
-        println!("  Deleted: {}", stats.entries_deleted);
-        if !stats.errors.is_empty() {
-            println!("  Errors:  {}", stats.errors.len());
-            for err in &stats.errors {
-                eprintln!("    - {}", err);
-            }
+        if let Some(ref pb) = pb {
+            pb.inc(1);
         }
     }
+
+    if let Some(pb) = pb {
+        pb.finish_and_clear();
+    }
+
+    worktree::EntriesManager::save(&worktree_path, &entries_map)?;
+
+    ui::print_push_stats(
+        stats.entries_created,
+        stats.entries_updated,
+        stats.entries_deleted,
+        &created_paths,
+        &updated_paths,
+        &deleted_paths,
+        &stats.errors,
+    );
 
     Ok(())
 }
@@ -963,9 +912,11 @@ async fn handle_revert(config: &Config, commitish: &str, dry_run: bool) -> Resul
     let wt_config = WorktreeConfig::load(&worktree_path)?;
     let repo = worktree::Repository::open(&worktree_path)?;
 
-    println!("Reverting remote to commit: {}", commitish);
-    println!("Space: {} ({})", wt_config.space_name, wt_config.space_id);
-    println!();
+    ui::print_header(
+        "Reverting to",
+        commitish,
+        &format!("{} ({})", wt_config.space_name, wt_config.space_id),
+    );
 
     let target_files = repo.get_commit_files(commitish)?;
     let target_paths: HashSet<String> = target_files.iter().map(|(p, _)| p.clone()).collect();
@@ -986,6 +937,9 @@ async fn handle_revert(config: &Config, commitish: &str, dry_run: bool) -> Resul
     let root_entry_id = extract_root_entry_id(&space_info)?;
 
     let mut stats = worktree::PushStats::default();
+    let mut updated_paths: Vec<String> = Vec::new();
+    let mut created_paths: Vec<String> = Vec::new();
+    let mut deleted_paths: Vec<String> = Vec::new();
 
     for (path, content) in &target_files {
         if path.starts_with(".lxworktree") {
@@ -996,12 +950,12 @@ async fn handle_revert(config: &Config, commitish: &str, dry_run: bool) -> Resul
             if path.ends_with(".md") {
                 let content_str = String::from_utf8_lossy(content);
                 if dry_run {
-                    println!("  [REVERT] {}", path);
+                    ui::print_dry_run_item("REVERT", path);
                 } else {
                     match push_page_content(&client, &entry_info.entry_id, &content_str).await {
                         Ok(_) => {
-                            println!("  Reverted: {}", path);
                             stats.entries_updated += 1;
+                            updated_paths.push(path.clone());
                         }
                         Err(e) => {
                             stats.errors.push(format!("{}: {}", path, e));
@@ -1009,7 +963,7 @@ async fn handle_revert(config: &Config, commitish: &str, dry_run: bool) -> Resul
                     }
                 }
             } else if dry_run {
-                println!("  [REVERT FILE] {}", path);
+                ui::print_dry_run_item("REVERT FILE", path);
             } else {
                 let temp_path = worktree_path.join(path);
                 if let Some(parent) = temp_path.parent() {
@@ -1019,8 +973,8 @@ async fn handle_revert(config: &Config, commitish: &str, dry_run: bool) -> Resul
 
                 match update_file_content(&client, &entry_info.entry_id, &temp_path).await {
                     Ok(_) => {
-                        println!("  Reverted file: {}", path);
                         stats.entries_updated += 1;
+                        updated_paths.push(path.clone());
                     }
                     Err(e) => {
                         stats.errors.push(format!("{}: {}", path, e));
@@ -1049,7 +1003,7 @@ async fn handle_revert(config: &Config, commitish: &str, dry_run: bool) -> Resul
             };
 
             if dry_run {
-                println!("  [RECREATE] {}", path);
+                ui::print_dry_run_item("RECREATE", path);
             } else if path.ends_with(".md") {
                 let page_name = file_path
                     .file_stem()
@@ -1061,8 +1015,8 @@ async fn handle_revert(config: &Config, commitish: &str, dry_run: bool) -> Resul
                     .await
                 {
                     Ok(new_entry_id) => {
-                        println!("  Recreated: {}", path);
                         stats.entries_created += 1;
+                        created_paths.push(path.clone());
                         worktree::EntriesManager::add(
                             &mut entries_map,
                             path.clone(),
@@ -1085,8 +1039,8 @@ async fn handle_revert(config: &Config, commitish: &str, dry_run: bool) -> Resul
                 match upload_new_file(&client, &parent_entry_id, &temp_path, Some(&file_name)).await
                 {
                     Ok(new_entry_id) => {
-                        println!("  Recreated: {}", path);
                         stats.entries_created += 1;
+                        created_paths.push(path.clone());
                         worktree::EntriesManager::add(
                             &mut entries_map,
                             path.clone(),
@@ -1107,12 +1061,12 @@ async fn handle_revert(config: &Config, commitish: &str, dry_run: bool) -> Resul
         if !target_paths.contains(path) && !path.starts_with(".lxworktree") {
             if let Some(entry_info) = entries_map.get(path) {
                 if dry_run {
-                    println!("  [DELETE] {}", path);
+                    ui::print_dry_run_item("DELETE", path);
                 } else {
                     match delete_entry(&client, &entry_info.entry_id).await {
                         Ok(_) => {
-                            println!("  Deleted: {}", path);
                             stats.entries_deleted += 1;
+                            deleted_paths.push(path.clone());
                         }
                         Err(e) => {
                             stats.errors.push(format!("delete {}: {}", path, e));
@@ -1127,19 +1081,18 @@ async fn handle_revert(config: &Config, commitish: &str, dry_run: bool) -> Resul
         worktree::EntriesManager::save(&worktree_path, &entries_map)?;
     }
 
-    println!();
     if dry_run {
-        println!("Dry run complete.");
+        ui::print_dry_run_complete();
     } else {
-        println!(
-            "Revert complete: {} created, {} updated",
-            stats.entries_created, stats.entries_updated
+        ui::print_push_stats(
+            stats.entries_created,
+            stats.entries_updated,
+            stats.entries_deleted,
+            &created_paths,
+            &updated_paths,
+            &deleted_paths,
+            &stats.errors,
         );
-        if !stats.errors.is_empty() {
-            for e in &stats.errors {
-                eprintln!("  - {}", e);
-            }
-        }
     }
 
     Ok(())
@@ -1153,13 +1106,13 @@ fn print_simple_diff(old_lines: &[&str], new_lines: &[&str]) {
 
     for line in old_lines {
         if !new_set.contains(line) && !line.trim().is_empty() {
-            println!("-{}", line);
+            ui::print_diff_line("-", line);
         }
     }
 
     for line in new_lines {
         if !old_set.contains(line) && !line.trim().is_empty() {
-            println!("+{}", line);
+            ui::print_diff_line("+", line);
         }
     }
 }

@@ -90,9 +90,14 @@ async fn main() -> anyhow::Result<()> {
             // 版本命令后自动检查更新
             cmd::auto_check_update().await;
         }
-        Some(Commands::Login) => {
-            let _token = auth::login().await?;
-            println!("登录成功");
+        Some(Commands::Login { token }) => {
+            if let Some(t) = token {
+                auth::save_token_direct(&t)?;
+                println!("✓ Token 已保存，登录成功");
+            } else {
+                let _token = auth::login().await?;
+                println!("✓ 登录成功");
+            }
         }
         Some(Commands::Logout) => {
             auth::logout()?;

@@ -54,6 +54,8 @@ gix = { version = "0.81", default-features = false, features = [
     "sha1",
 ] }
 walkdir = "2"
+indicatif = "0.17"
+console = "0.15"
 async-trait = "0.1"
 async-recursion = "1"
 inventory = "0.3"
