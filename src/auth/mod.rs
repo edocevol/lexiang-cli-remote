@@ -199,6 +199,19 @@ pub fn logout() -> Result<()> {
     delete_token()
 }
 
+/// 直接保存 access token（跳过 OAuth 流程）
+///
+/// 适用于从其他渠道获取 token 后直接配置的场景。
+pub fn save_token_direct(access_token: &str) -> Result<()> {
+    let token = TokenData {
+        access_token: access_token.to_string(),
+        refresh_token: None,
+        expires_at: None,
+        client_id: None,
+    };
+    save_token(&token)
+}
+
 // ═══════════════════════════════════════════════════════════
 //  Token 持久化（~/.lexiang/auth/token.json）
 // ═══════════════════════════════════════════════════════════

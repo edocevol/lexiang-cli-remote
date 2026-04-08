@@ -39,7 +39,10 @@ impl HttpTransport {
         let rpc_response: JsonRpcResponse<T> = response.json().await?;
 
         if let Some(error) = rpc_response.error {
-            anyhow::bail!("MCP error (code {}): {}", error.code, error.message);
+            anyhow::bail!(
+                "{}",
+                crate::cmd::ui::friendly_mcp_error(error.code, &error.message)
+            );
         }
 
         rpc_response

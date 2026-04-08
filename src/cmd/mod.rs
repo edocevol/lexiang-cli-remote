@@ -7,6 +7,7 @@ pub mod output;
 pub mod sh;
 pub mod skill;
 pub mod tools;
+pub mod ui;
 pub mod update;
 pub mod utils;
 

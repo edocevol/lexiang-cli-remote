@@ -46,8 +46,14 @@ pub enum Commands {
         /// Shell type (bash, zsh, fish, powershell, elvish)
         shell: Shell,
     },
-    /// Login via OAuth
-    Login,
+    /// Login via OAuth (or directly set token with --token)
+    Login {
+        /// Directly set access token (skip OAuth flow)
+        ///
+        /// Example: lx login --token "`your_access_token`"
+        #[arg(long)]
+        token: Option<String>,
+    },
     /// Logout and remove credentials
     Logout,
     /// Start daemon with virtual filesystem
