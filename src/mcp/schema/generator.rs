@@ -76,6 +76,20 @@ impl<'a> CommandGenerator<'a> {
                     .default_value("json-pretty")
                     .value_parser(["json", "json-pretty", "table", "yaml", "csv", "markdown"]),
             )
+            // 添加 --fields 参数，指定显示的字段
+            .arg(
+                Arg::new("fields")
+                    .long("fields")
+                    .value_name("FIELDS")
+                    .help("Comma-separated list of fields to display in table/csv/markdown output"),
+            )
+            // 添加 --all-fields 参数，显示所有字段（包括默认隐藏的）
+            .arg(
+                Arg::new("all_fields")
+                    .long("all-fields")
+                    .help("Show all fields including normally hidden ones (cover, created_by, etc.)")
+                    .action(ArgAction::SetTrue),
+            )
             // 添加 --data-raw 参数，支持一次性传入所有参数（类似 curl）
             .arg(
                 Arg::new("data_raw")
