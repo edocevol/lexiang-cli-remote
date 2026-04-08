@@ -16,24 +16,26 @@
 
 ## 📦 安装
 
-### 一键安装（推荐）
+### Rust 生态安装（推荐）
+
+如果本机已安装 Rust，推荐直接用 Cargo 从 GitHub 安装：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/tencent-lexiang/lexiang-cli/main/install.sh | bash
+cargo install --git https://github.com/tencent-lexiang/lexiang-cli --locked lexiang-cli
 ```
 
-自定义安装目录：`curl -fsSL https://raw.githubusercontent.com/tencent-lexiang/lexiang-cli/main/install.sh | bash -s -- --dir /usr/local/bin`
+这样不需要手动下载 release、`chmod`、移动二进制，也更符合 Rust 用户习惯。
 
 ### 从 Release 下载
 
-[🚀最新下载地址](https://github.com/tencent-lexiang/lexiang-cli/releases)
+如果你不想安装 Rust，也可以直接从 [GitHub Releases](https://github.com/tencent-lexiang/lexiang-cli/releases) 下载对应平台二进制。
 
-### 从源码安装（需要 Rust 1.70+）
+### 本地源码安装
 
 ```bash
 git clone https://github.com/tencent-lexiang/lexiang-cli.git
 cd lexiang-cli
-cargo install --force --path .
+cargo install --path .
 ```
 
 ## 🚀 快速开始
