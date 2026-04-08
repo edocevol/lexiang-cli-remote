@@ -16,6 +16,9 @@ defaults:
   run:
     working-directory: openclaw
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint
