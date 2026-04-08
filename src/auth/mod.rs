@@ -82,16 +82,17 @@ struct CallbackQuery {
 
 /// 统一的 `access_token` 获取入口。
 ///
-/// 1. config 中显式配置的 token（环境变量 / 配置文件）→ 直接使用
+/// 1. config 中显式配置的 token（环境变量 / 配置文件 / --token 注入）→ 直接使用
 /// 2. 本地 token 未过期 → 直接使用
 /// 3. 本地 token 已过期 + 有 `refresh_token` → 自动刷新
 /// 4. 刷新失败或无 token → 返回错误提示 `lx login`
 pub async fn get_access_token(config: &Config) -> Result<String> {
-    // 优先使用 config 中显式配置的 token（如环境变量传入）
+    // 优先使用 config 中显式配置的 token（--token / LX_ACCESS_TOKEN / 配置文件）
     if let Some(token) = config.mcp.access_token.clone() {
         return Ok(token);
     }
 
+    // 3. 本地 token 文件（自动刷新）
     match get_valid_token().await? {
         Some(td) => Ok(td.access_token),
         None => {
