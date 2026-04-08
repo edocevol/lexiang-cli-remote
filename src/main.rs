@@ -73,7 +73,12 @@ async fn main() -> anyhow::Result<()> {
 
     // 常规命令处理
     let cli = Cli::parse();
-    let config = config::Config::load()?;
+    let mut config = config::Config::load()?;
+
+    // 将 --token / LX_ACCESS_TOKEN 注入 Config，零侵入传递
+    if let Some(ref token) = cli.token {
+        config.mcp.access_token = Some(token.clone());
+    }
 
     match cli.command {
         Some(Commands::Version) => {

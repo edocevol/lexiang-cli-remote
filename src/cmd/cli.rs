@@ -6,6 +6,10 @@ use std::io;
 #[command(name = "lx")]
 #[command(about = "Lexiang CLI - A command-line tool for Lexiang MCP", long_about = None)]
 pub struct Cli {
+    /// Access token for authentication (alternative to OAuth login)
+    #[arg(long = "token", global = true, env = "LX_ACCESS_TOKEN")]
+    pub token: Option<String>,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
