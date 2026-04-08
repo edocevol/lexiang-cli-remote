@@ -99,7 +99,6 @@ pub fn print_help_with_dynamic_commands(schema: Option<&McpSchemaCollection>) {
     println!("Commands:");
 
     println!("  search         Search in knowledge base (shortcut for 'lexiang search')");
-    println!("  fetch-doc      Fetch a document (shortcut for 'lexiang fetch-doc')");
     println!("  lexiang        Lexiang namespace commands");
     println!("  mcp            MCP operations");
     println!("  tools          Tools schema management");

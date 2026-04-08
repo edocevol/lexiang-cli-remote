@@ -55,7 +55,6 @@
 ├─────────────────────────────────────────┤
 │  Layer 2: Legacy Commands               │
 │  - lx lexiang search                    │
-│  - lx lexiang fetch-doc                 │
 │  - 静态代码实现                         │
 ├─────────────────────────────────────────┤
 │  Layer 1: Raw MCP Commands              │
@@ -231,8 +230,8 @@ cargo build --release
 {
   "_comment": "Unlisted-but-callable tools. tool_names is config-as-code.",
   "tool_names": [
-    "search_kb_fetch_doc",
-    "search_kb_create_doc"
+    "entry_delete_entry",
+    "file_list_revisions"
   ],
   "tools": {
     // ← 由 sync-unlisted 自动填充，勿手动编辑
