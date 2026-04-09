@@ -110,11 +110,12 @@ impl fmt::Display for InstallResult {
             self.target_dir.display()
         )?;
         for file in &self.files_installed {
-            write!(
-                f,
-                "\n    - {}",
-                file.file_name().unwrap_or_default().to_string_lossy()
-            )?;
+            // 显示相对于 target_dir 的路径（如 references/lx-entry.md）
+            let display = file
+                .strip_prefix(&self.target_dir)
+                .unwrap_or(file)
+                .display();
+            write!(f, "\n    - {}", display)?;
         }
         Ok(())
     }
@@ -141,27 +142,36 @@ impl SkillInstaller {
     fn user_skill_dir(agent: AgentKind) -> PathBuf {
         let home = dirs::home_dir().expect("Cannot determine home directory");
         match agent {
-            // ~/.claude/skills/lx-cli/
-            AgentKind::ClaudeCode => home.join(".claude").join("skills").join("lx-cli"),
-            // ~/.codebuddy/skills/lx-cli/
-            AgentKind::CodeBuddy => home.join(".codebuddy").join("skills").join("lx-cli"),
-            // ~/.gemini/skills/lx-cli/
-            AgentKind::GeminiCli => home.join(".gemini").join("skills").join("lx-cli"),
-            // ~/.codex/skills/lx-cli/
-            AgentKind::CodexCli => home.join(".codex").join("skills").join("lx-cli"),
+            // ~/.claude/skills/lexiang-cli/
+            AgentKind::ClaudeCode => home.join(".claude").join("skills").join("lexiang-cli"),
+            // ~/.codebuddy/skills/lexiang-cli/
+            AgentKind::CodeBuddy => home.join(".codebuddy").join("skills").join("lexiang-cli"),
+            // ~/.gemini/skills/lexiang-cli/
+            AgentKind::GeminiCli => home.join(".gemini").join("skills").join("lexiang-cli"),
+            // ~/.codex/skills/lexiang-cli/
+            AgentKind::CodexCli => home.join(".codex").join("skills").join("lexiang-cli"),
         }
     }
 
     /// 获取 Agent 的项目级 skill 目录
     fn project_skill_dir(agent: AgentKind, project_root: &Path) -> PathBuf {
         match agent {
-            AgentKind::ClaudeCode => project_root.join(".claude").join("skills").join("lx-cli"),
+            AgentKind::ClaudeCode => project_root
+                .join(".claude")
+                .join("skills")
+                .join("lexiang-cli"),
             AgentKind::CodeBuddy => project_root
                 .join(".codebuddy")
                 .join("skills")
-                .join("lx-cli"),
-            AgentKind::GeminiCli => project_root.join(".gemini").join("skills").join("lx-cli"),
-            AgentKind::CodexCli => project_root.join(".codex").join("skills").join("lx-cli"),
+                .join("lexiang-cli"),
+            AgentKind::GeminiCli => project_root
+                .join(".gemini")
+                .join("skills")
+                .join("lexiang-cli"),
+            AgentKind::CodexCli => project_root
+                .join(".codex")
+                .join("skills")
+                .join("lexiang-cli"),
         }
     }
 
@@ -206,10 +216,23 @@ impl SkillInstaller {
     }
 
     /// 将 skill 文件安装到目标目录
+    ///
+    /// 新结构：每个 skill 保持独立子目录
+    /// ```text
+    /// lexiang-cli/
+    /// ├── SKILL.md             # 总索引（自动生成）
+    /// ├── lx-search/
+    /// │   ├── SKILL.md
+    /// │   └── references/
+    /// ├── lx-entry/
+    /// │   ├── SKILL.md
+    /// │   └── references/
+    /// └── ...
+    /// ```
     fn install_to_dir(
         &self,
         agent: AgentKind,
-        source_files: &[PathBuf],
+        _source_files: &[PathBuf],
         target_dir: &Path,
     ) -> Result<InstallResult> {
         // 安装前先清理旧文件，确保 update 场景不残留过期文件
@@ -222,32 +245,45 @@ impl SkillInstaller {
 
         let mut files_installed = Vec::new();
 
-        // 所有 Agent 统一使用 SKILL.md + references/ 结构
-        let skill_content = self.generate_unified_skill_md(source_files)?;
+        // 收集所有 skill 子目录
+        let skill_dirs = self.collect_skill_dirs()?;
+
+        // 复制每个 skill 的完整目录结构
+        for (dir_name, src_dir) in &skill_dirs {
+            let dest_skill_dir = target_dir.join(dir_name);
+            fs::create_dir_all(&dest_skill_dir)?;
+
+            // 复制 SKILL.md
+            let src_skill = src_dir.join("SKILL.md");
+            if src_skill.exists() {
+                let dest_skill = dest_skill_dir.join("SKILL.md");
+                fs::copy(&src_skill, &dest_skill)?;
+                files_installed.push(dest_skill);
+            }
+
+            // 复制 references/ 子目录
+            let src_refs = src_dir.join("references");
+            if src_refs.is_dir() {
+                let dest_refs = dest_skill_dir.join("references");
+                fs::create_dir_all(&dest_refs)?;
+                for ref_entry in fs::read_dir(&src_refs)? {
+                    let ref_entry = ref_entry?;
+                    let ref_path = ref_entry.path();
+                    if ref_path.extension().is_some_and(|ext| ext == "md") {
+                        let dest_ref = dest_refs.join(ref_path.file_name().unwrap_or_default());
+                        fs::copy(&ref_path, &dest_ref)?;
+                        files_installed.push(dest_ref);
+                    }
+                }
+            }
+        }
+
+        // 生成总索引 SKILL.md
+        let skill_content = self.generate_unified_skill_md(&skill_dirs)?;
         let skill_path = target_dir.join("SKILL.md");
         fs::write(&skill_path, &skill_content)
             .with_context(|| format!("写入失败: {:?}", skill_path))?;
-        files_installed.push(skill_path);
-
-        // 创建 references/ 子目录并复制 namespace 参考文档
-        let refs_dir = target_dir.join("references");
-        fs::create_dir_all(&refs_dir)
-            .with_context(|| format!("创建 references 目录失败: {:?}", refs_dir))?;
-
-        for src_file in source_files {
-            let filename = src_file
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
-            if filename == "README.md" {
-                continue; // SKILL.md 已包含概览信息
-            }
-            let dest = refs_dir.join(&filename);
-            fs::copy(src_file, &dest)
-                .with_context(|| format!("复制失败: {:?} -> {:?}", src_file, dest))?;
-            files_installed.push(dest);
-        }
+        files_installed.insert(0, skill_path);
 
         Ok(InstallResult {
             agent,
@@ -263,15 +299,53 @@ impl SkillInstaller {
             },
             target_dir: target_dir.to_path_buf(),
             files_installed,
-            skill_name: "lx-cli".to_string(),
+            skill_name: "lexiang-cli".to_string(),
         })
     }
 
-    /// 收集源目录中的 .md 文件（包括 references/ 子目录）
+    /// 收集源目录中的 skill 子目录
+    ///
+    /// 新格式：每个 skill 是一个子目录（含 SKILL.md）
+    /// 兼容旧格式：扁平的 .md 文件
+    fn collect_skill_dirs(&self) -> Result<Vec<(String, PathBuf)>> {
+        let mut dirs = Vec::new();
+
+        for entry in fs::read_dir(&self.source_dir)
+            .with_context(|| format!("读取目录失败: {:?}", self.source_dir))?
+        {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() && path.join("SKILL.md").exists() {
+                let dir_name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                dirs.push((dir_name, path));
+            }
+        }
+
+        dirs.sort_by(|a, b| a.0.cmp(&b.0));
+        Ok(dirs)
+    }
+
+    /// 收集源目录中的 .md 文件（兼容旧调用方，如 `install()` 的 check）
     fn collect_source_files(&self) -> Result<Vec<PathBuf>> {
         let mut files = Vec::new();
 
-        // 收集根目录的 README.md
+        // 新格式：收集各 skill 子目录的 SKILL.md
+        let skill_dirs = self.collect_skill_dirs()?;
+        if !skill_dirs.is_empty() {
+            for (_, dir) in &skill_dirs {
+                let skill_file = dir.join("SKILL.md");
+                if skill_file.exists() {
+                    files.push(skill_file);
+                }
+            }
+            return Ok(files);
+        }
+
+        // 兼容旧格式：收集根目录的 README.md
         let readme = self.source_dir.join("README.md");
         if readme.exists() {
             files.push(readme);
@@ -290,7 +364,6 @@ impl SkillInstaller {
                 }
             }
         } else {
-            // 兼容旧格式：直接收集根目录的 .md 文件
             for entry in fs::read_dir(&self.source_dir)
                 .with_context(|| format!("读取目录失败: {:?}", self.source_dir))?
             {
@@ -302,7 +375,6 @@ impl SkillInstaller {
             }
         }
 
-        // README.md 排第一，其余按字母序
         files.sort_by(|a, b| {
             let a_is_readme = a.file_name().unwrap_or_default() == "README.md";
             let b_is_readme = b.file_name().unwrap_or_default() == "README.md";
@@ -315,13 +387,13 @@ impl SkillInstaller {
         Ok(files)
     }
 
-    /// 生成统一的 SKILL.md（Claude Code / `CodeBuddy` / Gemini 格式）
-    fn generate_unified_skill_md(&self, source_files: &[PathBuf]) -> Result<String> {
+    /// 生成统一的 SKILL.md 总索引
+    fn generate_unified_skill_md(&self, skill_dirs: &[(String, PathBuf)]) -> Result<String> {
         let mut content = String::new();
 
         // YAML frontmatter
         content.push_str("---\n");
-        content.push_str("name: lx-cli\n");
+        content.push_str("name: lexiang-cli\n");
         content.push_str("description: |\n");
         content.push_str(
             "  Lexiang CLI (lx) 知识库管理工具。当用户需要操作乐享知识库（搜索、创建、\n",
@@ -330,7 +402,10 @@ impl SkillInstaller {
         content.push_str("  触发词：知识库、乐享、lx、lexiang、文档管理、知识管理\n");
         content.push_str("---\n\n");
 
-        // 读取 README.md 作为概览
+        content.push_str("# lx CLI Skills\n\n");
+        content.push_str("乐享知识库 CLI 工具的 AI agent 技能集合。\n\n");
+
+        // 读取 README.md（如果存在）
         let readme_path = self.source_dir.join("README.md");
         if readme_path.exists() {
             let readme = fs::read_to_string(&readme_path)?;
@@ -338,27 +413,57 @@ impl SkillInstaller {
             content.push_str("\n\n");
         }
 
-        // 引用各 namespace 的详细文档
-        content.push_str("## 详细命令参考\n\n");
-        content.push_str("以下文件包含各 namespace 的详细命令说明，按需查阅：\n\n");
-        for file in source_files {
-            let filename = file
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
-            if filename == "README.md" {
-                continue;
-            }
+        // Skill 索引表
+        content.push_str("## 可用 Skills\n\n");
+        content.push_str("| Skill | 描述 | 入口文件 |\n");
+        content.push_str("|-------|------|----------|\n");
+        for (dir_name, src_dir) in skill_dirs {
+            let desc = Self::extract_description(&src_dir.join("SKILL.md"))
+                .unwrap_or_else(|| format!("{} skill", dir_name));
+            // 截断过长描述
+            let short_desc = if desc.chars().count() > 60 {
+                let truncated: String = desc.chars().take(57).collect();
+                format!("{}...", truncated)
+            } else {
+                desc
+            };
             content.push_str(&format!(
-                "- [`{}`](references/{}) - {} namespace 详细参考\n",
-                filename,
-                filename,
-                filename.trim_end_matches(".md")
+                "| `{}` | {} | [{}/SKILL.md]({}/SKILL.md) |\n",
+                dir_name, short_desc, dir_name, dir_name
             ));
         }
 
+        content.push_str("\n## 快速开始\n\n");
+        content.push_str("```bash\n");
+        content.push_str("# 登录\n");
+        content.push_str("lx login\n\n");
+        content.push_str("# 查看可用命令\n");
+        content.push_str("lx tools categories\n");
+        content.push_str("lx tools list --category entry\n");
+        content.push_str("```\n");
+
         Ok(content)
+    }
+
+    /// 从 SKILL.md 的 YAML frontmatter 提取 description
+    fn extract_description(path: &Path) -> Option<String> {
+        let content = fs::read_to_string(path).ok()?;
+        if !content.starts_with("---") {
+            return None;
+        }
+        let rest = &content[3..];
+        let end = rest.find("---")?;
+        let frontmatter = &rest[..end];
+        for line in frontmatter.lines() {
+            let line = line.trim();
+            if let Some(desc) = line.strip_prefix("description:") {
+                let desc = desc.trim().trim_matches('"').trim_matches('\'');
+                if !desc.is_empty() {
+                    return Some(desc.to_string());
+                }
+            }
+        }
+        None
     }
 
     /// 卸载 skill
@@ -443,19 +548,19 @@ mod tests {
         let home = dirs::home_dir().unwrap();
         assert_eq!(
             SkillInstaller::user_skill_dir(AgentKind::ClaudeCode),
-            home.join(".claude/skills/lx-cli")
+            home.join(".claude/skills/lexiang-cli")
         );
         assert_eq!(
             SkillInstaller::user_skill_dir(AgentKind::CodeBuddy),
-            home.join(".codebuddy/skills/lx-cli")
+            home.join(".codebuddy/skills/lexiang-cli")
         );
         assert_eq!(
             SkillInstaller::user_skill_dir(AgentKind::GeminiCli),
-            home.join(".gemini/skills/lx-cli")
+            home.join(".gemini/skills/lexiang-cli")
         );
         assert_eq!(
             SkillInstaller::user_skill_dir(AgentKind::CodexCli),
-            home.join(".codex/skills/lx-cli")
+            home.join(".codex/skills/lexiang-cli")
         );
     }
 
@@ -464,7 +569,7 @@ mod tests {
         let project = PathBuf::from("/tmp/my-project");
         assert_eq!(
             SkillInstaller::project_skill_dir(AgentKind::ClaudeCode, &project),
-            PathBuf::from("/tmp/my-project/.claude/skills/lx-cli")
+            PathBuf::from("/tmp/my-project/.claude/skills/lexiang-cli")
         );
     }
 }
