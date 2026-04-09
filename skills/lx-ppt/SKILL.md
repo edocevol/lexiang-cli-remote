@@ -13,21 +13,25 @@ metadata:
 
 ## ⚡ 什么时候用这个 skill？
 
-**进入场景：**
+### 进入场景
+
 - 用户说"做个 PPT"/"生成幻灯片"/"修改演示文稿"
 - 用户说"制作 PPT"
 
-**禁止在本 skill 中执行：**
+### 禁止在本 skill 中执行
+
 - **不要创建知识库页面**：用户说"在知识库里创建页面" → **立即切换到 lx-entry skill**
 - **不要搜索文档**：用户说"搜索 PPT 相关文档" → **立即切换到 lx-search skill**
+- **不要处理本地 `.pptx` 精修**：用户明确要求编辑本地文件、母版、备注、逐元素排版 → **立即切换到通用 `pptx` skill**
 
-**决策规则：**
-- 用户说"做个 PPT"/"生成幻灯片"/"做个演示文稿" → **直接用 lx-ppt**
-- 除非用户明确要求产出本地 .pptx 文件并自行控制每个元素 → 用通用 pptx skill
+### 默认路由
+
+- 目标是“生成/修改乐享 AI PPT” → **直接用 lx-ppt**
+- 只有用户明确要操作本地 `.pptx` 文件 → 切到通用 `pptx` skill
 
 ## ⚡ 怎么选命令？（决策树）
 
-```
+```text
 识别场景 →
 ├── 从零生成 PPT?
 │   └── lx ppt generate-ppt → lx ppt get-ppt-task（轮询至完成）
@@ -44,16 +48,19 @@ metadata:
 ## ⚠️ 高风险操作与默认优先路径
 
 **生成是异步的：**
+
 - `lx ppt generate-ppt` 返回任务 ID
 - **必须轮询** `lx ppt get-ppt-task` 直到 `status` 为完成
 - 才能拿到 `title` 和 `preview_url`
 
 **默认优先路径：**
+
 1. 有深度研究报告优先用 → 如果执行过 `deep_research` 且有 `report_url`，应通过 `--deep-research-report-url` 传入，生成质量显著优于纯 `--context`
 2. 修改用 title 标识 PPT → 所有编辑操作都通过 `--title` 参数关联目标 PPT，必须使用 `get-ppt-task` 返回的精确标题
 3. 页面索引从 1 开始 → `modify-ppt-pages`、`delete-ppt-pages`、`reorder-ppt-pages` 中的页面索引都从 **1** 开始，不是 0
 
 **modification 使用自然语言：**
+
 - `lx ppt modify-ppt-pages` 的 `modification` 字段直接用中文描述修改意图即可
 - 如"把标题改为 Q2 总结"，无需指定坐标或样式参数
 

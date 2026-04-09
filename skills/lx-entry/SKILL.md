@@ -13,19 +13,21 @@ metadata:
 
 ## ⚡ 什么时候用这个 skill？
 
-**进入场景：**
+### 进入场景
+
 - 用户说"创建页面"/"上传文件"/"查看某个文档"
 - 用户说"导入 markdown 创建文档"/"管理草稿"
 - 用户说"浏览目录树"/"重命名条目"/"移动条目"
 
-**禁止在本 skill 中执行：**
-- **不要进行块级编辑**：用户说"编辑某个章节/表格/块" → **立即切换到 lx-block skill**
+### 禁止在本 skill 中执行
+
+- **不要修改页面内部内容**：用户说"改一段内容"/"替换某个章节"/"改表格" → **立即切换到 lx-block skill**
 - **不要进行可回滚的批量修改**：多步高风险修改 → **立即切换到 lx-git skill**，先用 `lx git clone` 建立本地工作区
 - **不要在知识库中搜索**：用户说"搜索" → **立即切换到 lx-search skill**
 
 ## ⚡ 怎么选命令？（决策树）
 
-```
+```text
 识别场景 →
 ├── 创建新页面/文件夹? → lx entry create-entry（需先获取 root_entry_id）
 ├── 查看/读取文档内容? → lx entry describe-ai-parse-content
@@ -43,14 +45,17 @@ metadata:
 ## ⚠️ 高风险操作与默认路径
 
 **多步修改必须建立 checkpoint：**
+
 - 用户要进行多步编辑、批量修改、或需要可回退的变更管理时
 - **必须引导用户使用 lx-git skill**
 - 纯在线编辑没有版本记录，一旦覆盖无法回滚
 
 **默认优先路径：**
-1. 已有页面优先局部编辑 → 使用 lx-block skill，**禁止** `import-content-to-entry --force-write` 覆盖
-2. 内容导入必须使用 base64 编码 → `markdown_base64` / `html_base64`
-3. 文件上传是 3 步流程 → 缺一不可
+
+1. 已有页面内容改动 → 先切到 lx-block skill，**禁止** `import-content-to-entry --force-write`
+2. 新建页面后整段导入 → 再使用 `lx entry import-content` / `lx entry import-content-to-entry`
+3. 内容导入必须使用 base64 编码 → `markdown_base64` / `html_base64`
+4. 文件上传是 3 步流程 → `apply-upload` → HTTP PUT → `commit-upload`
 
 ## 可用工具（场景分组）
 
