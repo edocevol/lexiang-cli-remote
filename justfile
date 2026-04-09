@@ -1,3 +1,4 @@
+# cargo install just
 # 默认：列出所有可用命令
 default:
     @just --list

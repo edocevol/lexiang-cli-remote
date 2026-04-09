@@ -18,10 +18,9 @@ pub fn handle_generate(output: Option<&str>) -> Result<()> {
 
     println!("Generated {} skill files to {:?}:", files.len(), output_dir);
     for file in files {
-        println!(
-            "  - {}",
-            file.file_name().unwrap_or_default().to_string_lossy()
-        );
+        // 显示相对于 output_dir 的路径
+        let display = file.strip_prefix(&output_dir).unwrap_or(&file).display();
+        println!("  - {}", display);
     }
 
     Ok(())
