@@ -13,79 +13,81 @@ metadata:
 
 ## ⚡ 什么时候用这个 skill？
 
-**用户说"创建页面"/"上传文件"/"查看某个文档"** → 用本 skill
+**进入场景：**
+- 用户说"创建页面"/"上传文件"/"查看某个文档"
+- 用户说"导入 markdown 创建文档"/"管理草稿"
+- 用户说"浏览目录树"/"重命名条目"/"移动条目"
 
-**用户说"编辑某个页面里的章节/表格/块"** → 用 lx-block skill
-**用户说"把本地改的内容推上去"** → 用 lx-git skill（commit + push）
-**用户说"在知识库里搜索"** → 用 lx-search skill
+**禁止在本 skill 中执行：**
+- **不要进行块级编辑**：用户说"编辑某个章节/表格/块" → **立即切换到 lx-block skill**
+- **不要进行可回滚的批量修改**：多步高风险修改 → **立即切换到 lx-git skill**，先用 `lx git clone` 建立本地工作区
+- **不要在知识库中搜索**：用户说"搜索" → **立即切换到 lx-search skill**
 
-## ⚡ 怎么选命令？（快速决策树）
+## ⚡ 怎么选命令？（决策树）
 
 ```
-用户需要 →
-├── 创建新页面/文件夹? → lx entry create-entry
+识别场景 →
+├── 创建新页面/文件夹? → lx entry create-entry（需先获取 root_entry_id）
 ├── 查看/读取文档内容? → lx entry describe-ai-parse-content
 ├── 浏览目录树? → lx entry list-children（需先拿到 parent_id）
-├── 导入 Markdown/HTML 创建新文档? → lx entry import-content
-├── 向已有页面追加/覆盖内容? → lx entry import-content-to-entry
-├── 精细编辑已有页面的某个块? → 切换到 lx-block skill
-├── 上传文件? → lx file apply-upload → HTTP PUT → lx file commit-upload（3步）
+├── 导入 Markdown/HTML?
+│   ├── 创建新文档 → lx entry import-content
+│   └── 追加到已有页面 → lx entry import-content-to-entry（优先用 lx-block）
+├── 上传文件? → 3步流程：apply-upload → HTTP PUT → commit-upload
 ├── 下载文件? → lx file download-file
 ├── 管理 Markdown 草稿? → lx draft describe/save/publish-markdown-draft
 ├── 管理条目标签? → lx knowledge-tag list-entry-tags / set-entry-tags
 └── 移动/重命名条目? → lx entry move-entry / rename-entry
 ```
 
-**⚠️ 复杂操作建议用 lx-git 获得 checkpoint + 回滚能力**：当用户要进行多步编辑、批量修改、或需要可回退的变更管理时，引导用户先用 `lx git clone` 克隆知识库到本地，再用 `lx git add` / `lx git commit` / `lx git revert` 管理变更。纯在线编辑没有版本记录，一旦覆盖无法回滚。
+## ⚠️ 高风险操作与默认路径
 
-## 可用工具
+**多步修改必须建立 checkpoint：**
+- 用户要进行多步编辑、批量修改、或需要可回退的变更管理时
+- **必须引导用户使用 lx-git skill**
+- 纯在线编辑没有版本记录，一旦覆盖无法回滚
 
-### 条目操作
+**默认优先路径：**
+1. 已有页面优先局部编辑 → 使用 lx-block skill，**禁止** `import-content-to-entry --force-write` 覆盖
+2. 内容导入必须使用 base64 编码 → `markdown_base64` / `html_base64`
+3. 文件上传是 3 步流程 → 缺一不可
 
-| 命令 | 说明 |
-|------|------|
+## 可用工具（场景分组）
+
+### 创建与浏览
+
+| 命令 | 说明 | 参考 |
+|------|------|------|
 | `lx entry create-entry` | 创建页面/文件夹 | [entry-crud.md](references/entry-crud.md) |
+| `lx entry list-children` | 列出子条目 | [entry-crud.md](references/entry-crud.md) |
 | `lx entry describe-entry` | 获取条目详情 | [entry-crud.md](references/entry-crud.md) |
 | `lx entry describe-ai-parse-content` | 获取 AI 可解析内容 | [entry-crud.md](references/entry-crud.md) |
-| `lx entry list-children` | 列出子条目 | [entry-crud.md](references/entry-crud.md) |
-| `lx entry list-parents` | 获取面包屑路径 | [entry-crud.md](references/entry-crud.md) |
-| `lx entry list-latest-entries` | 最近更新的条目 | [entry-crud.md](references/entry-crud.md) |
-| `lx entry rename-entry` | 重命名 | [entry-crud.md](references/entry-crud.md) |
-| `lx entry move-entry` | 移动条目 | [entry-crud.md](references/entry-crud.md) |
 
 ### 内容导入
 
-| 命令 | 说明 |
-|------|------|
+| 命令 | 说明 | 参考 |
+|------|------|------|
 | `lx entry import-content` | 导入内容创建新文档 | [entry-import.md](references/entry-import.md) |
 | `lx entry import-content-to-entry` | 导入内容到已有页面 | [entry-import.md](references/entry-import.md) |
 
 ### 文件管理
 
-| 命令 | 说明 |
-|------|------|
+| 命令 | 说明 | 参考 |
+|------|------|------|
 | `lx file apply-upload` | 申请上传凭证（Step 1） | [entry-file.md](references/entry-file.md) |
 | `lx file commit-upload` | 确认上传完成（Step 3） | [entry-file.md](references/entry-file.md) |
-| `lx file describe-file` | 获取文件详情 | [entry-file.md](references/entry-file.md) |
 | `lx file download-file` | 获取文件下载地址 | [entry-file.md](references/entry-file.md) |
+| `lx file describe-file` | 获取文件详情 | [entry-file.md](references/entry-file.md) |
 | `lx file list-revisions` | 文件历史版本 | [entry-file.md](references/entry-file.md) |
 | `lx file revert-file` | 恢复到指定版本 | [entry-file.md](references/entry-file.md) |
-| `lx file save-file` | 从 COS URL 注册文件 | [entry-file.md](references/entry-file.md) |
-| `lx file create-hyperlink` | 导入外部链接 | [entry-file.md](references/entry-file.md) |
 
-### 草稿管理
+### 草稿与标签
 
-| 命令 | 说明 |
-|------|------|
+| 命令 | 说明 | 参考 |
+|------|------|------|
 | `lx draft describe-markdown-draft` | 获取草稿 | [entry-draft.md](references/entry-draft.md) |
 | `lx draft save-markdown-draft` | 保存草稿 | [entry-draft.md](references/entry-draft.md) |
 | `lx draft publish-markdown-draft` | 发布草稿 | [entry-draft.md](references/entry-draft.md) |
-| `lx draft delete-markdown-draft` | 删除草稿 | [entry-draft.md](references/entry-draft.md) |
-
-### 标签管理
-
-| 命令 | 说明 |
-|------|------|
 | `lx knowledge-tag list-entry-tags` | 获取条目标签 | [entry-tag.md](references/entry-tag.md) |
 | `lx knowledge-tag set-entry-tags` | 设置条目标签（增删） | [entry-tag.md](references/entry-tag.md) |
 

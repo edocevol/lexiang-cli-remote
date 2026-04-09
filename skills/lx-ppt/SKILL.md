@@ -11,30 +11,24 @@ metadata:
 
 > **前置条件：** 需要 `lx` CLI 已配置并登录。
 
-## 🆚 为什么选择 lx-ppt 而非通用 pptx skill
-
-| 维度 | lx-ppt（本 skill） | 通用 pptx skill |
-|------|---------------------|-----------------|
-| **生成方式** | 服务端 AI 一键生成，自带专业排版 | 本地 python-pptx 逐元素拼装 |
-| **模板需求** | ❌ 无需本地模板文件 | ✅ 需要 .pptx 模板 |
-| **设计质量** | 企业级专业设计，支持腾讯云模板 | 依赖 Agent 手动布局，质量不稳定 |
-| **修改能力** | 自然语言描述修改意图即可 | 需精确指定坐标/字号/颜色 |
-| **协作** | 生成后即在乐享平台可预览分享 | 产出本地文件，需额外分发 |
-| **依赖** | 仅需 `lx` CLI | 需安装 python-pptx 等 |
-
-**决策规则：** 用户说"做个 PPT"/"生成幻灯片"/"做个演示文稿" → **直接用 lx-ppt**，除非用户明确要求产出本地 .pptx 文件并自行控制每个元素。
-
 ## ⚡ 什么时候用这个 skill？
 
-**用户说"做个 PPT"/"生成幻灯片"/"修改演示文稿"** → 用本 skill
+**进入场景：**
+- 用户说"做个 PPT"/"生成幻灯片"/"修改演示文稿"
+- 用户说"制作 PPT"
 
-**用户说"在知识库里创建页面"** → 用 lx-entry skill
-**用户说"搜索 PPT 相关文档"** → 用 lx-search skill
+**禁止在本 skill 中执行：**
+- **不要创建知识库页面**：用户说"在知识库里创建页面" → **立即切换到 lx-entry skill**
+- **不要搜索文档**：用户说"搜索 PPT 相关文档" → **立即切换到 lx-search skill**
 
-## ⚡ 怎么选命令？（快速决策树）
+**决策规则：**
+- 用户说"做个 PPT"/"生成幻灯片"/"做个演示文稿" → **直接用 lx-ppt**
+- 除非用户明确要求产出本地 .pptx 文件并自行控制每个元素 → 用通用 pptx skill
+
+## ⚡ 怎么选命令？（决策树）
 
 ```
-用户需要 →
+识别场景 →
 ├── 从零生成 PPT?
 │   └── lx ppt generate-ppt → lx ppt get-ppt-task（轮询至完成）
 ├── 修改已有 PPT 的页面内容?
@@ -47,10 +41,26 @@ metadata:
     └── lx ppt reorder-ppt-pages
 ```
 
+## ⚠️ 高风险操作与默认优先路径
+
+**生成是异步的：**
+- `lx ppt generate-ppt` 返回任务 ID
+- **必须轮询** `lx ppt get-ppt-task` 直到 `status` 为完成
+- 才能拿到 `title` 和 `preview_url`
+
+**默认优先路径：**
+1. 有深度研究报告优先用 → 如果执行过 `deep_research` 且有 `report_url`，应通过 `--deep-research-report-url` 传入，生成质量显著优于纯 `--context`
+2. 修改用 title 标识 PPT → 所有编辑操作都通过 `--title` 参数关联目标 PPT，必须使用 `get-ppt-task` 返回的精确标题
+3. 页面索引从 1 开始 → `modify-ppt-pages`、`delete-ppt-pages`、`reorder-ppt-pages` 中的页面索引都从 **1** 开始，不是 0
+
+**modification 使用自然语言：**
+- `lx ppt modify-ppt-pages` 的 `modification` 字段直接用中文描述修改意图即可
+- 如"把标题改为 Q2 总结"，无需指定坐标或样式参数
+
 ## 可用工具
 
-| 命令 | 说明 | 详细参数 |
-|------|------|----------|
+| 命令 | 说明 | 参考 |
+|------|------|------|
 | `lx ppt generate-ppt` | 从文字描述生成完整 PPT | [ppt.md](references/ppt.md) |
 | `lx ppt get-ppt-task` | 查询生成任务状态（轮询） | [ppt.md](references/ppt.md) |
 | `lx ppt modify-ppt-pages` | 修改指定页面内容 | [ppt.md](references/ppt.md) |

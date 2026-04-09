@@ -13,15 +13,20 @@ metadata:
 
 ## ⚡ 什么时候用这个 skill？
 
-**用户说"编辑某个页面"/"修改某个章节"/"改表格"/"在文档里插入内容"** → 用本 skill
+**进入场景：**
+- 用户说"编辑某个页面"/"修改某个章节"/"改表格"
+- 用户说"在文档里插入内容"/"追加内容"
+- 用户说"替换某个标题下的内容"/"导入 markdown 到文档"
 
-**用户说"在知识库里创建一个新页面"** → 用 lx-entry skill（先创建页面，再回来编辑）
-**用户说"把本地改的内容推上去"** → 用 lx-git skill（commit + push）
+**禁止在本 skill 中执行：**
+- **不要创建新页面**：用户说"创建一个新页面" → **立即切换到 lx-entry skill**
+- **不要推送修改到远程**：用户说"推送"/"commit"/"push" → **立即切换到 lx-git skill**
+- **不要浏览目录结构**：用户说"浏览知识库"/"看看目录" → **立即切换到 lx-sh skill**
 
-## ⚡ 怎么选命令？（快速决策树）
+## ⚡ 怎么选命令？（决策树）
 
 ```
-用户需要 →
+识别场景 →
 ├── 修改表格?
 │   ├── 读取表格 → lx block table-get
 │   ├── 改单元格 → lx block table-set
@@ -42,14 +47,30 @@ metadata:
     └── 转换内容 → lx block convert-content-to-blocks
 ```
 
+## ⚠️ 高风险操作与默认优先路径
+
+**高级命令优先，原子命令兜底：**
+- 能用高级命令（table-* / replace-section / import 等）就不要读原子命令
+- 原子命令只在高级命令无法表达时使用
+- 这是最重要的决策规则
+
+**默认优先路径：**
+1. 表格操作 → 用 `table-*` 高级命令
+2. 章节替换 → 用 `replace-section`
+3. 批量导入 → 用 `import --chunk-size 20` 自动分批
+4. 精细控制单个块 → 才回退到原子命令
+
+**大文档必须分批：**
+- 大文档导入使用 `lx block import --chunk-size 20` 自动分批，避免单次请求过大
+
 ## 可用工具
 
-### 高级命令（推荐优先使用）
+### 高级命令（默认优先使用）
 
-高级命令封装多步操作，自动处理块树遍历、内容转换等复杂逻辑。
+高级命令封装多步操作，自动处理块树遍历、内容转换等复杂逻辑。**能用高级命令就不要读原子命令。**
 
-| 命令 | 说明 | 详细参数 |
-|------|------|----------|
+| 命令 | 说明 | 参考 |
+|------|------|------|
 | `lx block table-get` | 读取表格结构 | [block-advanced.md](references/block-advanced.md) |
 | `lx block table-set` | 修改单元格 | [block-advanced.md](references/block-advanced.md) |
 | `lx block table-add-row` | 追加行 | [block-advanced.md](references/block-advanced.md) |
@@ -61,12 +82,12 @@ metadata:
 | `lx block tree` | 显示块树结构 | [block-advanced.md](references/block-advanced.md) |
 | `lx block import` | 导入 markdown（自动分批）| [block-advanced.md](references/block-advanced.md) |
 
-### 原子命令（精细控制）
+### 原子命令（仅在高级命令无法表达时使用）
 
-原子命令对应 MCP 接口，适合需要精确控制单个块的场景。
+原子命令对应 MCP 接口，适合需要精确控制单个块的场景。**仅在高级命令无法表达时使用。**
 
-| 命令 | 说明 | 详细参数 |
-|------|------|----------|
+| 命令 | 说明 | 参考 |
+|------|------|------|
 | `lx block describe-block` | 获取块信息 | [block-basic.md](references/block-basic.md) |
 | `lx block list-block-children` | 列出子块 | [block-basic.md](references/block-basic.md) |
 | `lx block create-block-descendant` | 创建子块 | [block-basic.md](references/block-basic.md) |
@@ -76,7 +97,6 @@ metadata:
 | `lx block delete-block-children` | 批量删除子块 | [block-basic.md](references/block-basic.md) |
 | `lx block move-blocks` | 移动块 | [block-basic.md](references/block-basic.md) |
 | `lx block convert-content-to-blocks` | 内容转换为块结构 | [block-basic.md](references/block-basic.md) |
-| `lx block apply-block-attachment-upload` | 块附件上传 | [block-basic.md](references/block-basic.md) |
 
 ## 🎯 执行规则
 

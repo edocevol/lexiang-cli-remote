@@ -13,15 +13,20 @@ metadata:
 
 ## ⚡ 什么时候用这个 skill？
 
-**用户说"我的知识库有哪些"/"帮我看看 XX 团队的知识库"/"找一下 YY 知识库"** → 用本 skill
+**进入场景：**
+- 用户说"我的知识库有哪些"/"帮我看看 XX 团队的知识库"
+- 用户说"找一下 YY 知识库"/"最近的知识库"
+- 用户说"这个知识库的根节点是什么"
 
-**用户说"在知识库里创建页面"/"编辑某个页面"** → 用 lx-entry 或 lx-block skill
-**用户说"搜索知识库内容"** → 用 lx-search skill
+**禁止在本 skill 中执行：**
+- **不要在本 skill 中创建页面**：用户说"创建页面" → **立即切换到 lx-entry skill**
+- **不要在本 skill 中编辑页面**：用户说"编辑某个页面" → **立即切换到 lx-block skill**
+- **不要在本 skill 中搜索内容**：用户说"搜索知识库内容" → **立即切换到 lx-search skill**
 
-## ⚡ 怎么选命令？（快速决策树）
+## ⚡ 怎么选命令？（决策树）
 
 ```
-用户需要 →
+识别场景 →
 ├── 不知道在哪个团队? → lx team list-teams 或 lx team list-frequent-teams
 ├── 知道团队，找知识库? → lx space list-spaces --team-id <ID>
 ├── 知道知识库 ID? → lx space describe-space --space-id <ID>
@@ -29,10 +34,24 @@ metadata:
 └── 需要获取知识库根节点（后续操作条目）? → lx space describe-space → 取 root_entry_id
 ```
 
+## ⚠️ 高风险操作与默认优先路径
+
+**获取 root_entry_id 是关键：**
+- 后续操作条目（创建页面、浏览目录树）都需要先通过 `lx space describe-space` 拿到 `root_entry_id`
+- 这是最重要的前置步骤
+
+**默认优先路径：**
+1. 用户说"最近的知识库" → 直接用 `lx space list-recently-spaces`，不要走 team → space 全链路
+2. 需要创建页面 → 先获取 `root_entry_id`，再切换到 lx-entry skill
+
+**层级关系：**
+- 团队(Team) → 知识库(Space) → 条目(Entry)
+- 知识库必须属于某个团队
+
 ## 可用工具
 
-| 命令 | 说明 | 详细参数 |
-|------|------|----------|
+| 命令 | 说明 | 参考 |
+|------|------|------|
 | `lx team list-teams` | 列出用户可访问的所有团队 | [space-team.md](references/space-team.md) |
 | `lx team list-frequent-teams` | 获取常用团队（按频率排序） | [space-team.md](references/space-team.md) |
 | `lx team describe-team` | 获取团队详情 | [space-team.md](references/space-team.md) |

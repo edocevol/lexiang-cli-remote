@@ -13,25 +13,46 @@ metadata:
 
 ## ⚡ 什么时候用这个 skill？
 
-**用户说"搜索 XX"/"有没有关于 XX 的文档"/"查一下 XX 同事"** → 用本 skill
+**进入场景：**
+- 用户说"搜索 XX"/"有没有关于 XX 的文档"/"找一下 XX"
+- 用户说"查一下 XX 同事"/"谁是 XX"
+- 用户说"搜索知识库"
 
-**用户说"编辑某个搜索到的页面"** → 用 lx-entry 或 lx-block skill
-**用户说"在知识库里创建一个页面"** → 用 lx-entry skill
+**禁止在本 skill 中执行：**
+- **不要在搜索后直接编辑**：搜索返回 `entry_id` 后，如需编辑 → **立即切换到 lx-entry 或 lx-block skill**
+- **不要在本 skill 中创建页面**：用户说"创建一个页面" → **立即切换到 lx-entry skill**
 
-## ⚡ 怎么选命令？（快速决策树）
+**搜索不是终点：**
+- 搜索只是定位工具，搜到 `entry_id` 后必须继续进入对应 skill 执行后续操作
+
+## ⚡ 怎么选命令？（决策树）
 
 ```
-用户想搜索 →
+识别场景 →
 ├── 知道精确关键词? → lx search kb-search
 ├── 模糊描述 / 自然语言提问? → lx search kb-embedding-search
 ├── 查找同事信息? → lx contact search-staff
 └── 确认当前登录身份? → lx contact whoami
 ```
 
+## ⚠️ 高风险操作与默认优先路径
+
+**关键词 vs 语义搜索：**
+- 用户给出明确关键词（如产品名、文档标题）→ 用 `lx search kb-search`
+- 用户描述模糊意图（如"怎么申请资源"）→ 用 `lx search kb-embedding-search`
+
+**默认优先路径：**
+1. 精确关键词 → `kb-search`
+2. 模糊意图 → `kb-embedding-search`
+3. 限定搜索范围 → 先获取 `space_id`，再传入搜索命令
+
+**搜索结果后续处理：**
+- 搜索返回 `entry_id` 后，如需获取内容，调用 `lx entry describe-ai-parse-content --entry-id <ID>`
+
 ## 可用工具
 
-| 命令 | 说明 | 详细参数 |
-|------|------|----------|
+| 命令 | 说明 | 参考 |
+|------|------|------|
 | `lx search kb-search` | 关键词精确搜索 | [kb-search.md](references/kb-search.md) |
 | `lx search kb-embedding-search` | 语义向量搜索 | [kb-search.md](references/kb-search.md) |
 | `lx contact search-staff` | 企业人员查询 | [kb-search.md](references/kb-search.md) |
