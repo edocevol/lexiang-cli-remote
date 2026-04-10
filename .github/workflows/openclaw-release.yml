@@ -14,10 +14,11 @@ defaults:
 permissions:
   contents: read
   packages: write
+  id-token: write  # Required for npm provenance
 
 jobs:
   publish:
-    name: Publish to GitHub Packages
+    name: Publish to NPM Registry
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
