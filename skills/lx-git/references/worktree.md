@@ -95,6 +95,7 @@ lx worktree revert abc1234 --dry-run
 ## 注意事项
 
 > [!CAUTION]
+>
 > - `lx worktree push` 和 `lx worktree revert` 会**修改远程知识库内容**
 > - `lx worktree remove` 会删除本地目录，但不影响远程内容
 > - 选择性拉取（`--entry-ids`）后 push 时只会推送已拉取的条目

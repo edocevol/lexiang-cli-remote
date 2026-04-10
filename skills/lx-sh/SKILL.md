@@ -14,17 +14,19 @@ metadata:
 ## ⚡ 什么时候用这个 skill？
 
 **进入场景：**
+
 - 用户说"浏览知识库"/"看看知识库结构"
 - 用户说"搜索文件内容"/"查看文档内容"
 - 用户说"在知识库里执行 grep/ls/cat"
 
 **禁止在本 skill 中执行：**
+
 - **不要修改内容**：用户说"编辑某个页面"/"推送修改" → **立即切换到 lx-git 或 lx-block skill**
 - **Shell 是只读的**：`/kb` 是只读文件系统，`rm`/`mv`/`cp`/`mkdir`/`touch` 等写命令会被拦截
 
 ## ⚡ 怎么选命令？（决策树）
 
-```
+```text
 识别场景 →
 ├── 交互式浏览知识库内容? → lx sh（REPL 模式）
 ├── 执行单条命令后退出? → lx sh --exec "<command>"
@@ -38,10 +40,12 @@ metadata:
 ## ⚠️ 高风险操作与默认优先路径
 
 **只读文件系统：**
+
 - Shell 中的 `/kb` 是只读的，`rm`/`mv`/`cp`/`mkdir`/`touch` 等写命令会被拦截
 - 需要修改内容请使用 `lx git` 或 `lx block` 命令
 
 **默认优先路径：**
+
 1. Agent 应优先使用 `lx sh --exec "..."` 单次执行，避免启动 REPL
 2. 不想 clone → 用 MCP 远程模式 `lx sh --space sp_xxx`
 3. 已有本地 worktree → 在 worktree 目录中执行 `lx sh`

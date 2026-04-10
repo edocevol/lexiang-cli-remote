@@ -24,13 +24,15 @@ lx block describe-block --entry-id entry_xxx --block-id blk_xxx
 
 这是向页面插入内容的标准两步流程：
 
-**Step 1 — 转换内容**
+#### Step 1 — 转换内容
+
 ```bash
 lx block convert-content-to-blocks --content "## 新章节\n\n段落内容" --content-type markdown
 # → 返回 descendant 结构（JSON）
 ```
 
-**Step 2 — 插入到页面**
+#### Step 2 — 插入到页面
+
 ```bash
 lx block create-block-descendant \
   --entry-id entry_xxx \

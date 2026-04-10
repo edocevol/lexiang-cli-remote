@@ -41,7 +41,7 @@ lint-fix:
 
 # Markdown lint
 markdown-lint:
-    npx --yes markdownlint-cli2 --fix
+    npx --yes markdownlint-cli2@0.17.2 --fix
 
 # 运行测试
 test:

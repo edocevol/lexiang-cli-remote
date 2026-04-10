@@ -82,6 +82,7 @@ lx git remote -v   # 显示 URL
 ## 注意事项
 
 > [!CAUTION]
+>
 > - `lx git push` 和 `lx git revert` 会**修改远程知识库内容**，操作前确认用户意图
 > - `--force` 跳过安全检查，仅在用户明确要求时使用
 > - `lx git revert` 会直接在远端创建/删除/更新页面，**不可自动撤销**

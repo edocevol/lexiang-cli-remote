@@ -132,6 +132,7 @@ xargs        # 将标准输入转为命令参数
 ## 注意事项
 
 > [!CAUTION]
+>
 > - `/kb` 是**只读**的，无法在 Shell 中修改知识库内容
 > - 需要修改内容请使用 `lx git push`（lx-git skill）或 `lx block` / `lx entry` 命令
 > - MCP 远程模式下，文件内容是按需从 API 拉取的，首次访问可能较慢

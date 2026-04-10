@@ -3,7 +3,7 @@ name: OpenClaw NPM Publish
 on:
   push:
     tags:
-      - 'npm-v*'
+      - 'openclaw-v*'
   release:
     types: [published]
 

@@ -8,7 +8,8 @@
 
 ### 上传新文件到知识库（完整 3 步）
 
-**Step 1 — 申请上传凭证**
+#### Step 1 — 申请上传凭证
+
 ```bash
 lx file apply-upload \
   --parent-entry-id folder_xxx \
@@ -17,12 +18,14 @@ lx file apply-upload \
 # → 返回 session.upload_url 和 session.session_id
 ```
 
-**Step 2 — HTTP PUT 上传文件（非 lx 命令，直接执行）**
+#### Step 2 — HTTP PUT 上传文件（非 lx 命令，直接执行）
+
 ```bash
 curl -X PUT "{upload_url}" --data-binary @/path/to/report.pdf
 ```
 
-**Step 3 — 确认上传完成**
+#### Step 3 — 确认上传完成
+
 ```bash
 lx file commit-upload --session-id sess_xxx
 # → 文件条目正式创建，返回 entry 对象
