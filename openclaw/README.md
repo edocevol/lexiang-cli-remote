@@ -1,4 +1,4 @@
-# @lexiang/openclaw-plugin
+# @tencent-lexiang/openclaw-lexiang"
 
 OpenClaw 插件，将 `lx` CLI 包装为 AI 工具。
 
