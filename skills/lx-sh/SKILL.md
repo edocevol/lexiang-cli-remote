@@ -98,10 +98,13 @@ metadata:
 ### 浏览远程知识库结构
 
 ::: example
+
 # 直接连接远程，不需要 clone
+
 lx sh --space sp_xxx
 
-# 在 Shell 中：
+# 在 Shell 中
+
 tree /kb --depth 2
 ls -la /kb/项目文档/
 cat /kb/项目文档/README.md
@@ -110,10 +113,13 @@ cat /kb/项目文档/README.md
 ### 在知识库中搜索内容
 
 ::: example
+
 # 单次执行
+
 lx sh --exec "grep -r 'OAuth' /kb | head -10"
 
 # 或使用内置 search
+
 lx sh --exec "search OAuth 认证"
 :::
 
@@ -128,9 +134,12 @@ lx sh --exec "find /kb -name '*.md' | wc -l"
 ### 编程 API 用法（Agent 集成）
 
 ::: example
+
 # 执行命令并获取输出
+
 lx sh --exec "grep -r 'API 设计' /kb | head -5"
 
 # 透传 MCP 调用
+
 lx sh --exec 'mcp entry_describe_entry {"entry_id": "entry_xxx"}'
 :::

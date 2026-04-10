@@ -67,7 +67,6 @@ describe-space: 获取知识库详情（含 root_entry_id）
 list-recently-spaces: 获取最近访问的知识库
 :::
 
-
 ## 🎯 执行规则
 
 1. **层级关系**：团队(Team) → 知识库(Space) → 条目(Entry)。知识库必须属于某个团队。
@@ -81,25 +80,33 @@ list-recently-spaces: 获取最近访问的知识库
 ### 从团队到知识库到文档
 
 ::: example
+
 # 获取团队列表，让用户选择目标团队
+
 lx team list-teams
 
 # 获取该团队下的知识库列表
+
 lx space list-spaces --team-id team_xxx
 
 # 获取知识库 root_entry_id
+
 lx space describe-space --space-id sp_xxx
 
 # 遍历文档目录树（→ lx-entry skill）
+
 lx entry list-children --parent-id root_entry_xxx
 :::
 
 ### 快速定位最近使用的知识库
 
 ::: example
+
 # 获取最近访问的知识库
+
 lx space list-recently-spaces
 
 # 获取详情和 root_entry_id
+
 lx space describe-space --space-id sp_xxx
 :::

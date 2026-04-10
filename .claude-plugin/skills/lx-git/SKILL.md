@@ -68,13 +68,11 @@ metadata:
 
 <!-- TODO: tools git [] -->
 
-
 详细参数：`lx git --help`
 
 ### lx worktree — 多工作区管理
 
 <!-- TODO: tools worktree [] -->
-
 
 详细参数：`lx worktree --help`
 
@@ -114,6 +112,7 @@ lx git add .
 lx git commit -m "更新了项目计划"
 lx git push
 ```
+
 ### 拉取远程更新
 
 ```bash
@@ -121,6 +120,7 @@ cd my-kb
 lx git pull
 # → 自动拉取最新内容并创建 commit
 ```
+
 ### 推送前预览
 
 ```bash
@@ -130,6 +130,7 @@ lx git push --dry-run
 # 确认无误后正式推送
 lx git push
 ```
+
 ### 回退远程版本
 
 ```bash

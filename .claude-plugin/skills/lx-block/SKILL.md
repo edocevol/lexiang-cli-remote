@@ -75,13 +75,11 @@ metadata:
 
 <!-- TODO: tools block [] -->
 
-
 ### 原子命令（仅在高级命令无法表达时使用）
 
 原子命令对应 MCP 接口，适合需要精确控制单个块的场景。**仅在高级命令无法表达时使用。**
 
 <!-- TODO: tools block [] -->
-
 
 ## 🎯 执行规则
 
@@ -106,6 +104,7 @@ lx block table-set --block-id tbl_xxx --row 2 --col 1 --text "修正值"
 # 验证结果
 lx block table-get --block-id tbl_xxx --format json
 ```
+
 ### 替换文档中的某个章节
 
 ```bash
@@ -116,6 +115,7 @@ lx block tree --block-id root_xxx --recursive
 lx block replace-section --block-id root_xxx --heading "## API 参考" \
   --file ./updated-api.md
 ```
+
 ### 使用原子命令精细编辑
 
 ```bash
@@ -131,6 +131,7 @@ lx block convert-content-to-blocks --content "## 新章节" --content-type markd
 lx block create-block-descendant --entry-id entry_xxx --parent-block-id page_xxx \
   --descendant '<转换结果>'
 ```
+
 ### 导入 Markdown 创建文档内容
 
 ```bash

@@ -59,7 +59,6 @@ metadata:
 
 <!-- TODO: tools space [] -->
 
-
 ## 🎯 执行规则
 
 1. **层级关系**：团队(Team) → 知识库(Space) → 条目(Entry)。知识库必须属于某个团队。
@@ -85,6 +84,7 @@ lx space describe-space --space-id sp_xxx
 # 遍历文档目录树（→ lx-entry skill）
 lx entry list-children --parent-id root_entry_xxx
 ```
+
 ### 快速定位最近使用的知识库
 
 ```bash

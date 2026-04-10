@@ -58,14 +58,12 @@ import-tx-meeting-record: 导入会议记录到知识库
 reload-tx-meeting-record: 重新加载已导入记录
 :::
 
-
 ### 评论管理
 
 ::: tools comment
 list-comments: 获取页面评论列表
 describe-comment: 获取评论详情
 :::
-
 
 ## 🎯 执行规则
 
@@ -78,10 +76,13 @@ describe-comment: 获取评论详情
 ### 导入腾讯会议记录
 
 ::: example
+
 # 搜索会议记录
+
 lx meeting search-tx-meeting-records --meeting-code "123456789"
 
 # 用户确认后导入
+
 lx meeting import-tx-meeting-record \
   --record-file-id rec_file_xxx \
   --parent-entry-id folder_xxx
@@ -90,9 +91,12 @@ lx meeting import-tx-meeting-record \
 ### 查看页面评论
 
 ::: example
+
 # 获取评论列表
+
 lx comment list-comments --target-type kb_entry --target-id entry_xxx
 
 # 查看评论详情
+
 lx comment describe-comment --comment-id comment_xxx
 :::

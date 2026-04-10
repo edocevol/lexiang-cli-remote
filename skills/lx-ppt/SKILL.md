@@ -75,7 +75,6 @@ delete-ppt-pages: 删除指定页面
 reorder-ppt-pages: 调整页面顺序
 :::
 
-
 ## 🎯 执行规则
 
 1. **生成是异步的**：`lx ppt generate-ppt` 返回任务 ID，必须**轮询** `lx ppt get-ppt-task` 直到 `status` 为完成，才能拿到 `title` 和 `preview_url`。
@@ -90,16 +89,21 @@ reorder-ppt-pages: 调整页面顺序
 ### 从零生成一套 PPT
 
 ::: example
+
 # 生成
+
 lx ppt generate-ppt \
   --planning "10页，主题：Q2业绩汇报，风格：商务简约" \
   --context "Q2 营收 1.5 亿..."
 
 # 轮询任务状态
+
 lx ppt get-ppt-task --id task_xxx
+
 # → status="completed" 后拿到 title + preview_url
 
 # 根据用户反馈微调
+
 lx ppt modify-ppt-pages \
   --title "Q2业绩汇报" \
   --pages '[{"page_index": 3, "modification": "数据图表换成柱状图"}]'
@@ -108,14 +112,18 @@ lx ppt modify-ppt-pages \
 ### 在已有 PPT 上增删调整
 
 ::: example
+
 # 添加新页面
+
 lx ppt add-ppt-pages --title "Q2业绩汇报" \
   --pages '[{"insert_after": 5, "title": "风险分析", "key_points": "...", "slide_type": "content"}]'
 
 # 删掉第 2 页
+
 lx ppt delete-ppt-pages --title "Q2业绩汇报" --page-indexes 2
 
 # 调整顺序
+
 lx ppt reorder-ppt-pages --title "Q2业绩汇报" \
   --new-order 1 --new-order 3 --new-order 4 --new-order 2
 :::

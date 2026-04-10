@@ -67,7 +67,6 @@ search-staff: 企业人员查询
 whoami: 获取当前用户身份
 :::
 
-
 ## 🎯 执行规则
 
 1. **关键词 vs 语义搜索**：用户给出明确关键词（如产品名、文档标题）时用 `lx search kb-search`；用户描述模糊意图（如"怎么申请资源"）时用 `lx search kb-embedding-search`。
@@ -82,29 +81,38 @@ whoami: 获取当前用户身份
 ### 在指定知识库中搜索
 
 ::: example
+
 # 获取最近知识库列表，确认 space_id
+
 lx space list-recently-spaces
 
 # 在指定知识库中搜索
+
 lx search kb-search --keyword "API 设计" --space-id sp_xxx
 :::
 
 ### 语义搜索 + 获取文档内容
 
 ::: example
+
 # 语义搜索，获取匹配的 entry_id
+
 lx search kb-embedding-search --keyword "如何配置数据库连接池"
 
 # 获取文档 AI 可解析内容
+
 lx entry describe-ai-parse-content --entry-id entry_xxx
 :::
 
 ### 查找同事的文档
 
 ::: example
+
 # 查找人员信息
+
 lx contact search-staff --staff-id "张三" --fuzzy-search
 
 # 按创建人搜索文档
+
 lx search kb-search --keyword "张三" --type kb_doc
 :::

@@ -80,7 +80,6 @@ revert: 回退远程到指定提交
 remote: 查看远程仓库信息
 :::
 
-
 详细参数：`lx git --help`
 
 ### lx worktree — 多工作区管理
@@ -98,7 +97,6 @@ pull: 拉取远程到 worktree
 reset: 重置 worktree HEAD
 revert: 回退 worktree 远程版本
 :::
-
 
 详细参数：`lx worktree --help`
 
@@ -118,22 +116,28 @@ revert: 回退 worktree 远程版本
 ### 首次克隆并编辑
 
 ::: example
+
 # 克隆知识库到本地
+
 lx git clone sp_xxx ./my-kb
 
 # 进入目录
+
 cd my-kb
 
 # 查看本地文件结构
+
 ls -la
 
 # 编辑 .md 文件...（用编辑器修改）
 
 # 查看改了什么
+
 lx git status
 lx git diff
 
 # 暂存 + 提交 + 推送
+
 lx git add .
 lx git commit -m "更新了项目计划"
 lx git push
@@ -144,28 +148,36 @@ lx git push
 ::: example
 cd my-kb
 lx git pull
+
 # → 自动拉取最新内容并创建 commit
+
 :::
 
 ### 推送前预览
 
 ::: example
 lx git push --dry-run
+
 # → 显示哪些文件会被创建/更新，不实际执行
 
 # 确认无误后正式推送
+
 lx git push
 :::
 
 ### 回退远程版本
 
 ::: example
+
 # 查看历史
+
 lx git log
 
 # 先预览回退效果
+
 lx git revert abc1234 --dry-run
 
 # 确认后执行
+
 lx git revert abc1234
 :::

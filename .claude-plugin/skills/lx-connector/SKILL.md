@@ -52,11 +52,9 @@ metadata:
 
 <!-- TODO: tools meeting [] -->
 
-
 ### 评论管理
 
 <!-- TODO: tools comment [] -->
-
 
 ## 🎯 执行规则
 
@@ -77,6 +75,7 @@ lx meeting import-tx-meeting-record \
   --record-file-id rec_file_xxx \
   --parent-entry-id folder_xxx
 ```
+
 ### 查看页面评论
 
 ```bash

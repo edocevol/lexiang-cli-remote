@@ -86,7 +86,6 @@ tree: 显示块树结构
 import: 导入 markdown（自动分批）
 :::
 
-
 ### 原子命令（仅在高级命令无法表达时使用）
 
 原子命令对应 MCP 接口，适合需要精确控制单个块的场景。**仅在高级命令无法表达时使用。**
@@ -103,7 +102,6 @@ move-blocks: 移动块
 convert-content-to-blocks: 内容转换为块结构
 :::
 
-
 ## 🎯 执行规则
 
 1. **高级命令优先**：表格操作、章节替换、批量导入等场景，优先使用 `lx block` 高级命令。只有需要精确控制单个块时才回退到原子命令。
@@ -118,23 +116,30 @@ convert-content-to-blocks: 内容转换为块结构
 ### 修改表格单元格
 
 ::: example
+
 # 查看当前状态
+
 lx block table-get --block-id tbl_xxx --format table
 
 # 修改
+
 lx block table-set --block-id tbl_xxx --row 2 --col 1 --text "修正值"
 
 # 验证结果
+
 lx block table-get --block-id tbl_xxx --format json
 :::
 
 ### 替换文档中的某个章节
 
 ::: example
+
 # 查看文档树，定位目标章节
+
 lx block tree --block-id root_xxx --recursive
 
 # 一键替换
+
 lx block replace-section --block-id root_xxx --heading "## API 参考" \
   --file ./updated-api.md
 :::
@@ -142,14 +147,18 @@ lx block replace-section --block-id root_xxx --heading "## API 参考" \
 ### 使用原子命令精细编辑
 
 ::: example
+
 # 获取完整块树
+
 lx block list-block-children --entry-id entry_xxx --with-descendants
 
 # 更新目标块内容
+
 lx block update-block --entry-id entry_xxx --block-id blk_xxx \
   --update-text '{"elements": [{"text": {"content": "新内容"}}]}'
 
 # 在指定位置插入新块（先转换 markdown）
+
 lx block convert-content-to-blocks --content "## 新章节" --content-type markdown
 lx block create-block-descendant --entry-id entry_xxx --parent-block-id page_xxx \
   --descendant '<转换结果>'
@@ -158,6 +167,8 @@ lx block create-block-descendant --entry-id entry_xxx --parent-block-id page_xxx
 ### 导入 Markdown 创建文档内容
 
 ::: example
+
 # 直接从文件导入（推荐）
+
 lx block import --block-id page_xxx --file ./doc.md --chunk-size 20
 :::

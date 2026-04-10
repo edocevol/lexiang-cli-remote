@@ -68,7 +68,6 @@ metadata:
 
 <!-- TODO: tools ppt [] -->
 
-
 ## 🎯 执行规则
 
 1. **生成是异步的**：`lx ppt generate-ppt` 返回任务 ID，必须**轮询** `lx ppt get-ppt-task` 直到 `status` 为完成，才能拿到 `title` 和 `preview_url`。
@@ -97,6 +96,7 @@ lx ppt modify-ppt-pages \
   --title "Q2业绩汇报" \
   --pages '[{"page_index": 3, "modification": "数据图表换成柱状图"}]'
 ```
+
 ### 在已有 PPT 上增删调整
 
 ```bash

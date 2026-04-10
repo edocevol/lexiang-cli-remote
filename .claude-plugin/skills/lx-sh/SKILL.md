@@ -106,6 +106,7 @@ tree /kb --depth 2
 ls -la /kb/项目文档/
 cat /kb/项目文档/README.md
 ```
+
 ### 在知识库中搜索内容
 
 ```bash
@@ -115,6 +116,7 @@ lx sh --exec "grep -r 'OAuth' /kb | head -10"
 # 或使用内置 search
 lx sh --exec "search OAuth 认证"
 ```
+
 ### 分析文档内容
 
 ```bash
@@ -122,6 +124,7 @@ lx sh --exec "wc -l /kb/**/*.md"
 lx sh --exec "grep -rl 'TODO' /kb"
 lx sh --exec "find /kb -name '*.md' | wc -l"
 ```
+
 ### 编程 API 用法（Agent 集成）
 
 ```bash

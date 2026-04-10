@@ -68,14 +68,12 @@ describe-entry: 获取条目详情
 describe-ai-parse-content: 获取 AI 可解析内容
 :::
 
-
 ### 内容导入
 
 ::: tools entry
 import-content: 导入内容创建新文档
 import-content-to-entry: 导入内容到已有页面
 :::
-
 
 ### 文件管理
 
@@ -87,7 +85,6 @@ describe-file: 获取文件详情
 list-revisions: 文件历史版本
 revert-file: 恢复到指定版本
 :::
-
 
 ### 草稿与标签
 
@@ -101,7 +98,6 @@ publish-markdown-draft: 发布草稿
 list-entry-tags: 获取条目标签
 set-entry-tags: 设置条目标签（增删）
 :::
-
 
 ## 🎯 执行规则
 
@@ -117,13 +113,17 @@ set-entry-tags: 设置条目标签（增删）
 ### 创建页面并导入内容
 
 ::: example
+
 # 获取 root_entry_id
+
 lx space describe-space --space-id sp_xxx
 
 # 创建空白页面
+
 lx entry create-entry --parent-entry-id root_xxx --name "新文档" --entry-type page
 
 # 导入内容
+
 lx entry import-content-to-entry \
   --entry-id entry_xxx \
   --content "<base64 内容>" \
@@ -133,48 +133,63 @@ lx entry import-content-to-entry \
 ### 上传文件到知识库
 
 ::: example
+
 # Step 1: 获取上传凭证
+
 lx file apply-upload --parent-entry-id folder_xxx --name "report.pdf" --upload-type PRE_SIGNED_URL
 
 # Step 2: HTTP PUT 上传
+
 curl -X PUT "{upload_url}" --data-binary @/path/to/report.pdf
 
 # Step 3: 确认上传
+
 lx file commit-upload --session-id sess_xxx
 :::
 
 ### 浏览文档目录
 
 ::: example
+
 # 获取 root_entry_id
+
 lx space describe-space --space-id sp_xxx
 
 # 获取一级目录
+
 lx entry list-children --parent-id root_xxx
 
 # 逐级展开子目录
+
 lx entry list-children --parent-id folder_xxx
 :::
 
 ### 草稿编辑流程
 
 ::: example
+
 # 检查是否有未发布草稿
+
 lx draft describe-markdown-draft --entry-id entry_xxx
 
 # 保存草稿
+
 lx draft save-markdown-draft --entry-id entry_xxx --revision-id rev_xxx --content "..." --seq 0
 
 # 发布为正式版本
+
 lx draft publish-markdown-draft --entry-id entry_xxx --revision-id rev_xxx
 :::
 
 ### 管理条目标签
 
 ::: example
+
 # 查看现有标签
+
 lx knowledge-tag list-entry-tags --entry-id entry_xxx
 
 # 增删标签
+
 lx knowledge-tag set-entry-tags --entry-id entry_xxx --add-tags "重要" --del-tags "过时"
 :::

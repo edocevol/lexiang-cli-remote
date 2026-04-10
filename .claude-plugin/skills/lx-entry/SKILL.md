@@ -63,23 +63,19 @@ metadata:
 
 <!-- TODO: tools entry [] -->
 
-
 ### 内容导入
 
 <!-- TODO: tools entry [] -->
 
-
 ### 文件管理
 
 <!-- TODO: tools file [] -->
-
 
 ### 草稿与标签
 
 <!-- TODO: tools draft [] -->
 
 <!-- TODO: tools knowledge-tag [] -->
-
 
 ## 🎯 执行规则
 
@@ -107,6 +103,7 @@ lx entry import-content-to-entry \
   --content "<base64 内容>" \
   --content-type markdown_base64
 ```
+
 ### 上传文件到知识库
 
 ```bash
@@ -119,6 +116,7 @@ curl -X PUT "{upload_url}" --data-binary @/path/to/report.pdf
 # Step 3: 确认上传
 lx file commit-upload --session-id sess_xxx
 ```
+
 ### 浏览文档目录
 
 ```bash
@@ -131,6 +129,7 @@ lx entry list-children --parent-id root_xxx
 # 逐级展开子目录
 lx entry list-children --parent-id folder_xxx
 ```
+
 ### 草稿编辑流程
 
 ```bash
@@ -143,6 +142,7 @@ lx draft save-markdown-draft --entry-id entry_xxx --revision-id rev_xxx --conten
 # 发布为正式版本
 lx draft publish-markdown-draft --entry-id entry_xxx --revision-id rev_xxx
 ```
+
 ### 管理条目标签
 
 ```bash
