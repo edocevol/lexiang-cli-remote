@@ -61,46 +61,24 @@ metadata:
 
 ### 创建与浏览
 
-::: tools entry
-create-entry: 创建页面/文件夹
-list-children: 列出子条目
-describe-entry: 获取条目详情
-describe-ai-parse-content: 获取 AI 可解析内容
-:::
+<!-- TODO: tools entry [] -->
 
 
 ### 内容导入
 
-::: tools entry
-import-content: 导入内容创建新文档
-import-content-to-entry: 导入内容到已有页面
-:::
+<!-- TODO: tools entry [] -->
 
 
 ### 文件管理
 
-::: tools file
-apply-upload: 申请上传凭证（Step 1）
-commit-upload: 确认上传完成（Step 3）
-download-file: 获取文件下载地址
-describe-file: 获取文件详情
-list-revisions: 文件历史版本
-revert-file: 恢复到指定版本
-:::
+<!-- TODO: tools file [] -->
 
 
 ### 草稿与标签
 
-::: tools draft
-describe-markdown-draft: 获取草稿
-save-markdown-draft: 保存草稿
-publish-markdown-draft: 发布草稿
-:::
+<!-- TODO: tools draft [] -->
 
-::: tools knowledge-tag
-list-entry-tags: 获取条目标签
-set-entry-tags: 设置条目标签（增删）
-:::
+<!-- TODO: tools knowledge-tag [] -->
 
 
 ## 🎯 执行规则
@@ -116,7 +94,7 @@ set-entry-tags: 设置条目标签（增删）
 
 ### 创建页面并导入内容
 
-::: example
+```bash
 # 获取 root_entry_id
 lx space describe-space --space-id sp_xxx
 
@@ -128,11 +106,10 @@ lx entry import-content-to-entry \
   --entry-id entry_xxx \
   --content "<base64 内容>" \
   --content-type markdown_base64
-:::
-
+```
 ### 上传文件到知识库
 
-::: example
+```bash
 # Step 1: 获取上传凭证
 lx file apply-upload --parent-entry-id folder_xxx --name "report.pdf" --upload-type PRE_SIGNED_URL
 
@@ -141,11 +118,10 @@ curl -X PUT "{upload_url}" --data-binary @/path/to/report.pdf
 
 # Step 3: 确认上传
 lx file commit-upload --session-id sess_xxx
-:::
-
+```
 ### 浏览文档目录
 
-::: example
+```bash
 # 获取 root_entry_id
 lx space describe-space --space-id sp_xxx
 
@@ -154,11 +130,10 @@ lx entry list-children --parent-id root_xxx
 
 # 逐级展开子目录
 lx entry list-children --parent-id folder_xxx
-:::
-
+```
 ### 草稿编辑流程
 
-::: example
+```bash
 # 检查是否有未发布草稿
 lx draft describe-markdown-draft --entry-id entry_xxx
 
@@ -167,14 +142,13 @@ lx draft save-markdown-draft --entry-id entry_xxx --revision-id rev_xxx --conten
 
 # 发布为正式版本
 lx draft publish-markdown-draft --entry-id entry_xxx --revision-id rev_xxx
-:::
-
+```
 ### 管理条目标签
 
-::: example
+```bash
 # 查看现有标签
 lx knowledge-tag list-entry-tags --entry-id entry_xxx
 
 # 增删标签
 lx knowledge-tag set-entry-tags --entry-id entry_xxx --add-tags "重要" --del-tags "过时"
-:::
+```

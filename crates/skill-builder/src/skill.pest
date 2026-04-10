@@ -1,0 +1,29 @@
+// Skill 文件语法定义
+
+skill = { SOI ~ frontmatter ~ body ~ EOI }
+
+// Frontmatter
+frontmatter = { "---" ~ NEWLINE ~ frontmatter_content ~ "---" ~ NEWLINE* }
+frontmatter_content = @{ (!("---") ~ ANY)* }
+
+// Body
+body = { body_part* }
+body_part = _{ placeholder | text_line | NEWLINE }
+
+// 占位符: 行首 ::: type args\n内容\n:::
+placeholder = {
+    ":::" ~ WS+ ~ placeholder_type ~ (WS+ ~ placeholder_args)? ~ NEWLINE ~
+    placeholder_inner ~
+    ":::" ~ WS* ~ (NEWLINE | &EOI)
+}
+
+placeholder_type = @{ ASCII_ALPHA+ }
+placeholder_args = @{ (!NEWLINE ~ ANY)+ }
+placeholder_inner = @{ (!(":::" ~ WS* ~ (NEWLINE | EOI)) ~ ANY)* }
+
+// 普通文本行（不以 ::: 开头）
+text_line = @{ !":::" ~ (!NEWLINE ~ ANY)+ }
+
+// 显式定义，不自动跳过
+WS = _{ " " | "\t" }
+NEWLINE = _{ "\r\n" | "\n" | "\r" }

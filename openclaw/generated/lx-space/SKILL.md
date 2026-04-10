@@ -55,18 +55,9 @@ metadata:
 
 ## 可用工具
 
-::: tools team
-list-teams: 列出用户可访问的所有团队
-list-frequent-teams: 获取常用团队（按频率排序）
-describe-team: 获取团队详情
-:::
+<!-- TODO: tools team [] -->
 
-::: tools space
-list-spaces: 列出团队下的知识库
-describe-space: 获取知识库详情（含 root_entry_id）
-list-recently-spaces: 获取最近访问的知识库
-:::
-
+<!-- TODO: tools space [] -->
 
 ## 🎯 执行规则
 
@@ -80,26 +71,20 @@ list-recently-spaces: 获取最近访问的知识库
 
 ### 从团队到知识库到文档
 
-::: example
-# 获取团队列表，让用户选择目标团队
-lx team list-teams
+1. 获取团队列表，让用户选择目标团队 - 调用 `lx-team-list-teams` 工具
 
-# 获取该团队下的知识库列表
-lx space list-spaces --team-id team_xxx
+2. 获取该团队下的知识库列表 - 调用 `lx-space-list-spaces` 工具
+   - team_id: `team_xxx`
 
-# 获取知识库 root_entry_id
-lx space describe-space --space-id sp_xxx
+3. 获取知识库 root_entry_id - 调用 `lx-space-describe-space` 工具
+   - space_id: `sp_xxx`
 
-# 遍历文档目录树（→ lx-entry skill）
-lx entry list-children --parent-id root_entry_xxx
-:::
+4. 遍历文档目录树（→ lx-entry skill） - 调用 `lx-entry-list-children` 工具
+   - parent_id: `root_entry_xxx`
 
 ### 快速定位最近使用的知识库
 
-::: example
-# 获取最近访问的知识库
-lx space list-recently-spaces
+1. 获取最近访问的知识库 - 调用 `lx-space-list-recently-spaces` 工具
 
-# 获取详情和 root_entry_id
-lx space describe-space --space-id sp_xxx
-:::
+2. 获取详情和 root_entry_id - 调用 `lx-space-describe-space` 工具
+   - space_id: `sp_xxx`

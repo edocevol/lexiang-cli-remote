@@ -97,40 +97,24 @@ metadata:
 
 ### 浏览远程知识库结构
 
-::: example
-# 直接连接远程，不需要 clone
-lx sh --space sp_xxx
-
-# 在 Shell 中：
-tree /kb --depth 2
-ls -la /kb/项目文档/
-cat /kb/项目文档/README.md
-:::
+1. 直接连接远程，不需要 clone - 调用 `lx-sh---space` 工具
 
 ### 在知识库中搜索内容
 
-::: example
-# 单次执行
-lx sh --exec "grep -r 'OAuth' /kb | head -10"
+1. 单次执行 - 调用 `lx-sh---exec` 工具
 
-# 或使用内置 search
-lx sh --exec "search OAuth 认证"
-:::
+2. 或使用内置 search - 调用 `lx-sh---exec` 工具
 
 ### 分析文档内容
 
-::: example
-lx sh --exec "wc -l /kb/**/*.md"
-lx sh --exec "grep -rl 'TODO' /kb"
-lx sh --exec "find /kb -name '*.md' | wc -l"
-:::
+1. 调用 `lx-sh---exec` 工具
+
+2. 调用 `lx-sh---exec` 工具
+
+3. 调用 `lx-sh---exec` 工具
 
 ### 编程 API 用法（Agent 集成）
 
-::: example
-# 执行命令并获取输出
-lx sh --exec "grep -r 'API 设计' /kb | head -5"
+1. 执行命令并获取输出 - 调用 `lx-sh---exec` 工具
 
-# 透传 MCP 调用
-lx sh --exec 'mcp entry_describe_entry {"entry_id": "entry_xxx"}'
-:::
+2. 透传 MCP 调用 - 调用 `lx-sh---exec` 工具

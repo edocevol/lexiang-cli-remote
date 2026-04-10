@@ -73,35 +73,14 @@ metadata:
 
 高级命令封装多步操作，自动处理块树遍历、内容转换等复杂逻辑。**能用高级命令就不要读原子命令。**
 
-::: tools block
-table-get: 读取表格结构
-table-set: 修改单元格
-table-add-row: 追加行
-table-del-row: 删除行
-replace-section: 按标题替换章节
-insert-after: 在指定块后插入
-append: 追加到末尾
-export: 导出为 markdown/json
-tree: 显示块树结构
-import: 导入 markdown（自动分批）
-:::
+<!-- TODO: tools block [] -->
 
 
 ### 原子命令（仅在高级命令无法表达时使用）
 
 原子命令对应 MCP 接口，适合需要精确控制单个块的场景。**仅在高级命令无法表达时使用。**
 
-::: tools block
-describe-block: 获取块信息
-list-block-children: 列出子块
-create-block-descendant: 创建子块
-update-block: 更新块
-update-blocks: 批量更新块
-delete-block: 删除块
-delete-block-children: 批量删除子块
-move-blocks: 移动块
-convert-content-to-blocks: 内容转换为块结构
-:::
+<!-- TODO: tools block [] -->
 
 
 ## 🎯 执行规则
@@ -117,7 +96,7 @@ convert-content-to-blocks: 内容转换为块结构
 
 ### 修改表格单元格
 
-::: example
+```bash
 # 查看当前状态
 lx block table-get --block-id tbl_xxx --format table
 
@@ -126,22 +105,20 @@ lx block table-set --block-id tbl_xxx --row 2 --col 1 --text "修正值"
 
 # 验证结果
 lx block table-get --block-id tbl_xxx --format json
-:::
-
+```
 ### 替换文档中的某个章节
 
-::: example
+```bash
 # 查看文档树，定位目标章节
 lx block tree --block-id root_xxx --recursive
 
 # 一键替换
 lx block replace-section --block-id root_xxx --heading "## API 参考" \
   --file ./updated-api.md
-:::
-
+```
 ### 使用原子命令精细编辑
 
-::: example
+```bash
 # 获取完整块树
 lx block list-block-children --entry-id entry_xxx --with-descendants
 
@@ -153,11 +130,10 @@ lx block update-block --entry-id entry_xxx --block-id blk_xxx \
 lx block convert-content-to-blocks --content "## 新章节" --content-type markdown
 lx block create-block-descendant --entry-id entry_xxx --parent-block-id page_xxx \
   --descendant '<转换结果>'
-:::
-
+```
 ### 导入 Markdown 创建文档内容
 
-::: example
+```bash
 # 直接从文件导入（推荐）
 lx block import --block-id page_xxx --file ./doc.md --chunk-size 20
-:::
+```

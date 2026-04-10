@@ -50,22 +50,11 @@ metadata:
 
 ### 腾讯会议导入
 
-::: tools meeting
-search-tx-meeting-records: 搜索腾讯会议记录
-list-tx-meeting-records: 列出录制记录
-describe-tx-meeting-record: 录制详情
-import-tx-meeting-record: 导入会议记录到知识库
-reload-tx-meeting-record: 重新加载已导入记录
-:::
-
+<!-- TODO: tools meeting [] -->
 
 ### 评论管理
 
-::: tools comment
-list-comments: 获取页面评论列表
-describe-comment: 获取评论详情
-:::
-
+<!-- TODO: tools comment [] -->
 
 ## 🎯 执行规则
 
@@ -77,22 +66,18 @@ describe-comment: 获取评论详情
 
 ### 导入腾讯会议记录
 
-::: example
-# 搜索会议记录
-lx meeting search-tx-meeting-records --meeting-code "123456789"
+1. 搜索会议记录 - 调用 `lx-meeting-search-tx-meeting-records` 工具
+   - meeting_code: `123456789`
 
-# 用户确认后导入
-lx meeting import-tx-meeting-record \
-  --record-file-id rec_file_xxx \
-  --parent-entry-id folder_xxx
-:::
+2. 用户确认后导入 - 调用 `lx-meeting-import-tx-meeting-record` 工具
+   - record_file_id: `rec_file_xxx`
+   - parent_entry_id: `folder_xxx`
 
 ### 查看页面评论
 
-::: example
-# 获取评论列表
-lx comment list-comments --target-type kb_entry --target-id entry_xxx
+1. 获取评论列表 - 调用 `lx-comment-list-comments` 工具
+   - target_type: `kb_entry`
+   - target_id: `entry_xxx`
 
-# 查看评论详情
-lx comment describe-comment --comment-id comment_xxx
-:::
+2. 查看评论详情 - 调用 `lx-comment-describe-comment` 工具
+   - comment_id: `comment_xxx`

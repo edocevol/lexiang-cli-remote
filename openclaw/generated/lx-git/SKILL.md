@@ -66,39 +66,13 @@ metadata:
 
 ### lx git — 核心版本控制
 
-::: tools git
-clone: 克隆远程知识库到本地
-add: 暂存文件
-commit: 提交本地变更
-status: 查看工作树状态
-diff: 查看变更差异
-log: 查看提交历史
-pull: 从远程拉取最新内容
-push: 推送本地变更到远程
-reset: 重置本地 HEAD
-revert: 回退远程到指定提交
-remote: 查看远程仓库信息
-:::
-
+<!-- TODO: tools git [] -->
 
 详细参数：`lx git --help`
 
 ### lx worktree — 多工作区管理
 
-::: tools worktree
-add: 创建新 worktree
-list: 列出所有 worktree
-remove: 删除 worktree
-status: 查看 worktree 状态
-diff: 查看 worktree 差异
-commit: 提交 worktree 变更
-log: 查看 worktree 提交历史
-push: 推送 worktree 到远程
-pull: 拉取远程到 worktree
-reset: 重置 worktree HEAD
-revert: 回退 worktree 远程版本
-:::
-
+<!-- TODO: tools worktree [] -->
 
 详细参数：`lx worktree --help`
 
@@ -117,55 +91,32 @@ revert: 回退 worktree 远程版本
 
 ### 首次克隆并编辑
 
-::: example
-# 克隆知识库到本地
-lx git clone sp_xxx ./my-kb
+1. 克隆知识库到本地 - 调用 `lx-git-clone` 工具
 
-# 进入目录
-cd my-kb
+2. 查看改了什么 - 调用 `lx-git-status` 工具
 
-# 查看本地文件结构
-ls -la
+3. 调用 `lx-git-diff` 工具
 
-# 编辑 .md 文件...（用编辑器修改）
+4. 暂存 + 提交 + 推送 - 调用 `lx-git-add` 工具
 
-# 查看改了什么
-lx git status
-lx git diff
+5. 调用 `lx-git-commit` 工具
 
-# 暂存 + 提交 + 推送
-lx git add .
-lx git commit -m "更新了项目计划"
-lx git push
-:::
+6. 调用 `lx-git-push` 工具
 
 ### 拉取远程更新
 
-::: example
-cd my-kb
-lx git pull
-# → 自动拉取最新内容并创建 commit
-:::
+1. 调用 `lx-git-pull` 工具
 
 ### 推送前预览
 
-::: example
-lx git push --dry-run
-# → 显示哪些文件会被创建/更新，不实际执行
+1. 调用 `lx-git-push` 工具
 
-# 确认无误后正式推送
-lx git push
-:::
+2. 确认无误后正式推送 - 调用 `lx-git-push` 工具
 
 ### 回退远程版本
 
-::: example
-# 查看历史
-lx git log
+1. 查看历史 - 调用 `lx-git-log` 工具
 
-# 先预览回退效果
-lx git revert abc1234 --dry-run
+2. 先预览回退效果 - 调用 `lx-git-revert` 工具
 
-# 确认后执行
-lx git revert abc1234
-:::
+3. 确认后执行 - 调用 `lx-git-revert` 工具

@@ -1,0 +1,8 @@
+{
+  "description": "乐享知识库 CLI 工具 skills",
+  "name": "lx-cli-skills",
+  "skills": [
+    "./skills/"
+  ],
+  "version": "1.0.0"
+}

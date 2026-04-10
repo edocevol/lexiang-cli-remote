@@ -4,10 +4,13 @@
 //!   skill-builder build [TARGET]
 //!
 //! 目标:
-//!   codebuddy  - 生成 CodeBuddy/Claude Code 的 SKILL.md
+//!   claude-code - 生成 Claude Code plugin marketplace 格式
 //!   openclaw   - 生成 `OpenClaw` 插件 manifest
 //!   mcp        - 生成 MCP plugin manifest
 //!   all        - 生成所有目标（默认）
+
+mod generator;
+mod parser;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
@@ -60,8 +63,8 @@ enum Commands {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
 enum BuildTarget {
-    /// CodeBuddy/Claude Code SKILL.md
-    Codebuddy,
+    /// Claude Code plugin marketplace 格式
+    ClaudeCode,
     /// `OpenClaw` 插件 manifest
     Openclaw,
     /// MCP plugin manifest
@@ -102,7 +105,7 @@ async fn build_skills(
 ) -> Result<()> {
     let targets = match target {
         BuildTarget::All => vec![
-            BuildTarget::Codebuddy,
+            BuildTarget::ClaudeCode,
             BuildTarget::Openclaw,
             BuildTarget::Mcp,
         ],
@@ -115,8 +118,8 @@ async fn build_skills(
         }
 
         match t {
-            BuildTarget::Codebuddy => {
-                build_codebuddy(skills_dir, output, verbose).await?;
+            BuildTarget::ClaudeCode => {
+                build_claude_code(skills_dir, output, verbose).await?;
             }
             BuildTarget::Openclaw => {
                 build_openclaw(skills_dir, output, verbose).await?;
@@ -132,24 +135,111 @@ async fn build_skills(
     Ok(())
 }
 
-async fn build_codebuddy(
+async fn build_claude_code(
     skills_dir: &std::path::Path,
-    _output: Option<&std::path::Path>,
-    _verbose: bool,
+    output: Option<&std::path::Path>,
+    verbose: bool,
 ) -> Result<()> {
-    println!("  → CodeBuddy: {}/*/SKILL.md", skills_dir.display());
-    // TODO: 实现 Markdown 解析和占位符替换
+    use walkdir::WalkDir;
+
+    let output_dir = output
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from(".claude-plugin"));
+    let skills_output = output_dir.join("skills");
+    std::fs::create_dir_all(&skills_output)?;
+
+    let mut skill_paths: Vec<String> = Vec::new();
+
+    for entry in WalkDir::new(skills_dir).min_depth(1).max_depth(2) {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.file_name().map(|n| n == "SKILL.md").unwrap_or(false) {
+            let skill = parser::parse_skill_file(path)?;
+            let generated = generator::generate_claude_code(&skill, path.parent().unwrap())?;
+
+            // 输出到 .claude-plugin/skills/<skill-name>/SKILL.md
+            let skill_name = path
+                .parent()
+                .and_then(|p| p.file_name())
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let skill_dir = skills_output.join(&skill_name);
+            std::fs::create_dir_all(&skill_dir)?;
+
+            let out_path = skill_dir.join("SKILL.md");
+            std::fs::write(&out_path, &generated)?;
+
+            // 记录相对路径用于 plugin.json
+            skill_paths.push(format!("./skills/{}/", skill_name));
+
+            if verbose {
+                println!("    {} → {}", path.display(), out_path.display());
+            }
+        }
+    }
+
+    // 生成 plugin.json
+    let plugin_json = serde_json::json!({
+        "version": "1.0.0",
+        "name": "lx-cli-skills",
+        "description": "乐享知识库 CLI 工具 skills",
+        "skills": ["./skills/"]
+    });
+
+    let plugin_path = output_dir.join("plugin.json");
+    std::fs::write(&plugin_path, serde_json::to_string_pretty(&plugin_json)?)?;
+
+    if verbose {
+        println!("    plugin.json → {}", plugin_path.display());
+    }
+
+    println!("  → Claude Code: {}/", output_dir.display());
+    println!("    - plugin.json");
+    println!("    - skills/*/SKILL.md ({} skills)", skill_paths.len());
     Ok(())
 }
 
 async fn build_openclaw(
     skills_dir: &std::path::Path,
-    _output: Option<&std::path::Path>,
-    _verbose: bool,
+    output: Option<&std::path::Path>,
+    verbose: bool,
 ) -> Result<()> {
-    println!("  → OpenClaw: openclaw/generated/skills.json");
-    let _ = skills_dir;
-    // TODO: 实现 OpenClaw manifest 生成
+    use walkdir::WalkDir;
+
+    let output_dir = output
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("openclaw/generated"));
+    std::fs::create_dir_all(&output_dir)?;
+
+    for entry in WalkDir::new(skills_dir).min_depth(1).max_depth(2) {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.file_name().map(|n| n == "SKILL.md").unwrap_or(false) {
+            let skill = parser::parse_skill_file(path)?;
+            let generated = generator::generate_openclaw(&skill, path.parent().unwrap())?;
+
+            // 输出到 openclaw/generated/<skill-name>/SKILL.md
+            let skill_name = path
+                .parent()
+                .and_then(|p| p.file_name())
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let out_path = output_dir.join(&skill_name).join("SKILL.md");
+
+            if let Some(parent) = out_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::write(&out_path, &generated)?;
+
+            if verbose {
+                println!("    {} → {}", path.display(), out_path.display());
+            }
+        }
+    }
+
+    println!("  → OpenClaw: {}/*/SKILL.md", output_dir.display());
     Ok(())
 }
 

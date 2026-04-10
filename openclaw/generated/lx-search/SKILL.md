@@ -57,16 +57,9 @@ metadata:
 
 ## 可用工具
 
-::: tools search
-kb-search: 关键词精确搜索
-kb-embedding-search: 语义向量搜索
-:::
+<!-- TODO: tools search [] -->
 
-::: tools contact
-search-staff: 企业人员查询
-whoami: 获取当前用户身份
-:::
-
+<!-- TODO: tools contact [] -->
 
 ## 🎯 执行规则
 
@@ -81,30 +74,25 @@ whoami: 获取当前用户身份
 
 ### 在指定知识库中搜索
 
-::: example
-# 获取最近知识库列表，确认 space_id
-lx space list-recently-spaces
+1. 获取最近知识库列表，确认 space_id - 调用 `lx-space-list-recently-spaces` 工具
 
-# 在指定知识库中搜索
-lx search kb-search --keyword "API 设计" --space-id sp_xxx
-:::
+2. 在指定知识库中搜索 - 调用 `lx-search-kb-search` 工具
+   - keyword: `API 设计`
+   - space_id: `sp_xxx`
 
 ### 语义搜索 + 获取文档内容
 
-::: example
-# 语义搜索，获取匹配的 entry_id
-lx search kb-embedding-search --keyword "如何配置数据库连接池"
+1. 语义搜索，获取匹配的 entry_id - 调用 `lx-search-kb-embedding-search` 工具
+   - keyword: `如何配置数据库连接池`
 
-# 获取文档 AI 可解析内容
-lx entry describe-ai-parse-content --entry-id entry_xxx
-:::
+2. 获取文档 AI 可解析内容 - 调用 `lx-entry-describe-ai-parse-content` 工具
+   - entry_id: `entry_xxx`
 
 ### 查找同事的文档
 
-::: example
-# 查找人员信息
-lx contact search-staff --staff-id "张三" --fuzzy-search
+1. 查找人员信息 - 调用 `lx-contact-search-staff` 工具
+   - staff_id: `张三`
 
-# 按创建人搜索文档
-lx search kb-search --keyword "张三" --type kb_doc
-:::
+2. 按创建人搜索文档 - 调用 `lx-search-kb-search` 工具
+   - keyword: `张三`
+   - type: `kb_doc`
