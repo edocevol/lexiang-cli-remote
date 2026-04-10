@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - 'openclaw-v*'
-  release:
-    types: [published]
 
 defaults:
   run:
