@@ -108,6 +108,14 @@ impl SchemaManager {
         self.collection = Some(collection);
     }
 
+    /// 获取完整的 schema collection（用于导出）
+    pub fn collection(&self) -> &McpSchemaCollection {
+        static EMPTY: std::sync::OnceLock<McpSchemaCollection> = std::sync::OnceLock::new();
+        self.collection
+            .as_ref()
+            .unwrap_or_else(|| EMPTY.get_or_init(McpSchemaCollection::new))
+    }
+
     /// 检查是否有 schema
     #[allow(dead_code)]
     pub fn has_schema(&self) -> bool {

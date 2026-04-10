@@ -5,6 +5,6 @@
         "MD060": false
     },
     "ignores": [
-        "src/skill/templates/**"
+        "crates/lx/src/skill/templates/**"
     ]
 }

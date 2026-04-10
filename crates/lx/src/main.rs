@@ -141,6 +141,7 @@ async fn main() -> anyhow::Result<()> {
             cmd::ToolsCommands::Categories => cmd::handle_categories()?,
             cmd::ToolsCommands::Version => cmd::handle_version()?,
             cmd::ToolsCommands::List { category } => cmd::handle_list(category.as_deref())?,
+            cmd::ToolsCommands::Schema { format } => cmd::handle_schema(&format)?,
             cmd::ToolsCommands::SyncEmbedded => cmd::handle_sync_embedded(&config).await?,
             cmd::ToolsCommands::SyncUnlisted => cmd::handle_sync_unlisted(&config).await?,
         },

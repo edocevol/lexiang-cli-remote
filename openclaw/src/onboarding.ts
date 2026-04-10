@@ -318,6 +318,27 @@ export const lexiangOnboardingAdapter: ChannelOnboardingAdapter = {
       };
     }
 
+    // ---------------------------------------------------------------------------
+    // Step 3: 同步 Schema（凭证配置好后自动同步）
+    // ---------------------------------------------------------------------------
+
+    const finalToken = (next.plugins?.entries?.['lexiang-cli']?.config as LexiangPluginConfig)?.accessToken
+      || process.env.LEXIANG_ACCESS_TOKEN;
+
+    if (isLxAvailable() && finalToken) {
+      console.log('正在同步 tool schema...');
+      try {
+        const syncResult = await execLx(['tools', 'sync']);
+        if (syncResult.exitCode === 0) {
+          console.log('✓ Schema 同步完成');
+        } else {
+          console.log(`⚠ Schema 同步失败: ${syncResult.stderr || syncResult.stdout}`);
+        }
+      } catch (err) {
+        console.log(`⚠ Schema 同步失败: ${err}`);
+      }
+    }
+
     return { success: true, cfg: next };
   },
 

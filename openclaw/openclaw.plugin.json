@@ -1,6 +1,5 @@
 {
   "id": "lexiang-cli",
-  "skills": ["./skills"],
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

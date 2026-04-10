@@ -122,11 +122,18 @@ describe('Schema Loading', () => {
 
   it('should load schema from CLI', async () => {
     vi.mocked(isLxAvailable).mockReturnValue(true);
+    // 现在 loadSchema 使用 `lx tools schema --format json`
+    // 返回完整的 McpSchemaCollection 格式
+    const mockSchema: McpSchemaCollection = {
+      version: '2026-04-03T00:00:00Z',
+      categories: [],
+      tools: {
+        search_kb_search: { name: 'search_kb_search', description: 'Search' },
+        team_list_teams: { name: 'team_list_teams', description: 'List teams' },
+      },
+    };
     vi.mocked(execLx).mockResolvedValue({
-      stdout: JSON.stringify([
-        { name: 'search_kb_search', description: 'Search' },
-        { name: 'team_list_teams', description: 'List teams' },
-      ]),
+      stdout: JSON.stringify(mockSchema),
       stderr: '',
       exitCode: 0,
     });

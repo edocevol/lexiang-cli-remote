@@ -5,11 +5,11 @@ use crate::mcp::ToolSchema;
 use std::collections::HashMap;
 
 /// 编译时嵌入的 schema JSON（源文件位于项目根目录 schemas/lexiang.json）
-const EMBEDDED_SCHEMA_JSON: &str = include_str!("../../../schemas/lexiang.json");
+const EMBEDDED_SCHEMA_JSON: &str = include_str!("../../../../../schemas/lexiang.json");
 
 /// 编译时嵌入的 unlisted tools schema（源文件位于 schemas/unlisted.json）
 /// 这些工具不在 tools/list 中返回，但可以通过 tools/call 调用
-const UNLISTED_SCHEMA_JSON: &str = include_str!("../../../schemas/unlisted.json");
+const UNLISTED_SCHEMA_JSON: &str = include_str!("../../../../../schemas/unlisted.json");
 
 /// 加载嵌入的 unlisted tools schema
 pub fn load_unlisted_schemas() -> HashMap<String, ToolSchema> {

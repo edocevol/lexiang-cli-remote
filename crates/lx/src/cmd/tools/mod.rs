@@ -283,3 +283,25 @@ fn locate_project_root() -> Option<std::path::PathBuf> {
 
     None
 }
+
+/// Export full tool schema as JSON (for OpenClaw/external integration)
+///
+/// This command outputs the complete tool schema collection, including:
+/// - All categories with their tools
+/// - Full inputSchema for each tool (parameters, types, descriptions)
+/// - Both embedded and runtime-synced schemas merged together
+///
+/// Output format is designed for external tools like `OpenClaw` plugins to
+/// dynamically generate tool wrappers without hardcoding tool definitions.
+pub fn handle_schema(format: &str) -> Result<()> {
+    let manager = SchemaManager::load_from_runtime();
+    let collection = manager.collection();
+
+    let output = match format {
+        "json" => serde_json::to_string(collection)?,
+        _ => serde_json::to_string_pretty(collection)?,
+    };
+
+    println!("{}", output);
+    Ok(())
+}

@@ -51,7 +51,12 @@ export interface McpSchemaCollection {
 // ---------------------------------------------------------------------------
 
 /**
- * 从 lx CLI 加载 schema
+ * 从 lx CLI 加载 schema（实时从 MCP Server 获取）
+ *
+ * 注意：此函数会调用 `lx tools sync` 先同步最新 schema，
+ * 然后再获取完整的 tool schema。适用于需要最新数据的场景。
+ *
+ * 对于普通场景，推荐使用 `loadCachedSchema()` 直接读取本地缓存。
  */
 export async function loadSchema(): Promise<McpSchemaCollection | null> {
   if (!isLxAvailable()) {
@@ -59,28 +64,15 @@ export async function loadSchema(): Promise<McpSchemaCollection | null> {
   }
 
   try {
-    // 使用 lx tools categories 获取分类信息
-    // 然后使用 lx mcp list 获取完整 schema
-    const result = await execLx(['mcp', 'list', '--format', 'json']);
+    // 直接使用 lx tools schema 获取完整 schema
+    // 该命令会合并 embedded + runtime override + custom schema
+    const result = await execLx(['tools', 'schema', '--format', 'json']);
     if (result.exitCode !== 0) {
       console.error('Failed to load schema:', result.stderr);
       return null;
     }
 
-    const tools = JSON.parse(result.stdout) as McpToolSchema[];
-
-    // 构建 schema collection
-    const collection: McpSchemaCollection = {
-      version: new Date().toISOString(),
-      categories: [], // TODO: 从 tools categories 加载
-      tools: {},
-    };
-
-    for (const tool of tools) {
-      collection.tools[tool.name] = tool;
-    }
-
-    return collection;
+    return JSON.parse(result.stdout) as McpSchemaCollection;
   } catch (err) {
     console.error('Failed to load schema:', err);
     return null;
@@ -89,11 +81,14 @@ export async function loadSchema(): Promise<McpSchemaCollection | null> {
 
 /**
  * 从本地缓存加载 schema（如果有）
+ *
+ * 使用 `lx tools schema` 命令获取 CLI 封装后的完整 tool schema，
+ * 包含 categories、inputSchema、outputSchema 等完整定义。
+ * 这是 CLI 自己封装的高级工具 schema，而不是原始的 MCP schema。
  */
 export async function loadCachedSchema(): Promise<McpSchemaCollection | null> {
   try {
-    // lx 会把 schema 缓存到 ~/.lexiang/cache/schema.json
-    const result = await execLx(['tools', 'list', '--format', 'json']);
+    const result = await execLx(['tools', 'schema', '--format', 'json']);
     if (result.exitCode !== 0) {
       return null;
     }
