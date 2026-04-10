@@ -1,6 +1,6 @@
 {
     "name": "@tencent-lexiang/openclaw-lexiang",
-    "version": "0.1.1",
+    "version": "0.1.0",
     "description": "OpenClaw plugin for Lexiang",
     "type": "module",
     "main": "./dist/index.js",
