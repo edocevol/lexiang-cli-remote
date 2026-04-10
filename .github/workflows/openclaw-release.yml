@@ -8,16 +8,16 @@ on:
 defaults:
   run:
     working-directory: openclaw
-
-permissions:
-  contents: read
-  packages: write
-  id-token: write  # Required for npm provenance
-
+    
 jobs:
   publish:
     name: Publish to NPM Registry
     runs-on: ubuntu-latest
+    environment: openclaw-release
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v5
 
