@@ -120,7 +120,12 @@ pub enum ToolsCommands {
         /// Category name (e.g., "team", "space", "entry")
         #[arg(short, long)]
         category: Option<String>,
+        /// Output format (table, json)
+        #[arg(short, long, default_value = "table")]
+        format: String,
     },
+    /// Output full schema JSON (for `OpenClaw` and other integrations)
+    Schema,
     /// Sync schema from MCP Server and write to schemas/lexiang.json (development self-bootstrap)
     SyncEmbedded,
     /// Fetch unlisted tool schemas from MCP Server based on `tool_names` in schemas/unlisted.json

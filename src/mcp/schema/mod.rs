@@ -102,6 +102,11 @@ impl SchemaManager {
             .unwrap_or_default()
     }
 
+    /// 获取完整的 schema collection
+    pub fn get_collection(&self) -> Option<&McpSchemaCollection> {
+        self.collection.as_ref()
+    }
+
     /// 设置 schema collection
     #[allow(dead_code)]
     pub fn set_collection(&mut self, collection: McpSchemaCollection) {

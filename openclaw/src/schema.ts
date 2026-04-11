@@ -92,8 +92,8 @@ export async function loadSchema(): Promise<McpSchemaCollection | null> {
  */
 export async function loadCachedSchema(): Promise<McpSchemaCollection | null> {
   try {
-    // lx 会把 schema 缓存到 ~/.lexiang/cache/schema.json
-    const result = await execLx(['tools', 'list', '--format', 'json']);
+    // 使用 lx tools schema 获取完整 schema JSON
+    const result = await execLx(['tools', 'schema']);
     if (result.exitCode !== 0) {
       return null;
     }

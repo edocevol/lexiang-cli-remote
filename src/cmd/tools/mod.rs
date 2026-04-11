@@ -46,12 +46,20 @@ pub fn handle_version() -> Result<()> {
     Ok(())
 }
 
-pub fn handle_list(category: Option<&str>) -> Result<()> {
+pub fn handle_list(category: Option<&str>, format: &str) -> Result<()> {
     let manager = SchemaManager::load_from_runtime();
+    let is_json = format == "json" || format == "json-pretty";
 
     if let Some(cat) = category {
         let tools = manager.get_tools_by_namespace(cat);
-        if tools.is_empty() {
+        if is_json {
+            // JSON 输出: 返回该分类下的 tools 数组
+            let output = serde_json::json!({
+                "category": cat,
+                "tools": tools
+            });
+            println!("{}", serde_json::to_string_pretty(&output)?);
+        } else if tools.is_empty() {
             println!(
                 "No tools found in category '{}'. Run 'lx tools sync' first.",
                 cat
@@ -65,13 +73,34 @@ pub fn handle_list(category: Option<&str>) -> Result<()> {
         }
     } else {
         let categories = manager.get_categories();
-        if categories.is_empty() {
+        if is_json {
+            // JSON 输出: 返回完整的 McpSchemaCollection
+            if let Some(coll) = manager.get_collection() {
+                println!("{}", serde_json::to_string_pretty(coll)?);
+            } else {
+                println!("{{}}");
+            }
+        } else if categories.is_empty() {
             println!("No categories found. Run 'lx tools sync' first.");
         } else {
             let names: Vec<_> = categories.iter().map(|c| c.name.as_str()).collect();
             println!("Available categories: {}", names.join(", "));
             println!("\nUse 'lx tools list --category <name>' to see tools in a category.");
         }
+    }
+
+    Ok(())
+}
+
+/// 输出完整 schema JSON (用于 `OpenClaw` 等集成)
+pub fn handle_schema() -> Result<()> {
+    let manager = SchemaManager::load_from_runtime();
+
+    if let Some(coll) = manager.get_collection() {
+        println!("{}", serde_json::to_string_pretty(coll)?);
+    } else {
+        eprintln!("No schema found. Run 'lx tools sync' first.");
+        std::process::exit(1);
     }
 
     Ok(())
