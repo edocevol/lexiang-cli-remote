@@ -14,9 +14,20 @@
 - 📦 **多格式输出** - 支持 JSON、YAML、CSV、Markdown、表格等 6 种格式
 - 🎨 **Shell 补全** - 支持 Bash、Zsh、Fish、PowerShell 自动补全
 
-## 📦 安装
+## 📦 获取与安装
 
-### 无 Cargo 环境（推荐）
+### 发布与下载入口
+
+| 类型 | 地址 | 说明 |
+|------|------|------|
+| CLI 二进制 | [GitHub Releases](https://github.com/tencent-lexiang/lexiang-cli/releases) | `lx` 命令行工具的稳定版本与安装脚本入口 |
+| OpenClaw npm 包 | [GitHub Packages](https://github.com/edocevol/lexiang-cli-remote/pkgs/npm/%40tencent-lexiang%2Fopenclaw-lexiang) | 包名 `@tencent-lexiang/openclaw-lexiang`，Registry：`https://npm.pkg.github.com` |
+
+后续如果补充 VS Code 插件下载地址，也可以继续放在这一节统一维护。
+
+### CLI 安装
+
+#### 无 Cargo 环境（推荐）
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/tencent-lexiang/lexiang-cli/main/scripts/install.sh | sh
@@ -35,7 +46,7 @@ curl -fsSL https://raw.githubusercontent.com/tencent-lexiang/lexiang-cli/main/sc
 - 校验 `SHA256SUMS.txt`
 - 安装到 `~/.local/bin`（或你指定的目录）
 
-### Rust 生态安装
+#### Rust 生态安装
 
 如果本机已安装 Rust，也可以直接用 Cargo 从 GitHub 安装：
 
@@ -43,11 +54,11 @@ curl -fsSL https://raw.githubusercontent.com/tencent-lexiang/lexiang-cli/main/sc
 cargo install --git https://github.com/tencent-lexiang/lexiang-cli --locked lexiang-cli
 ```
 
-### 从 Release 下载
+#### 从 Release 下载
 
 如果你不想使用脚本，也可以直接从 [GitHub Releases](https://github.com/tencent-lexiang/lexiang-cli/releases) 下载对应平台二进制。
 
-### 本地源码安装
+#### 本地源码安装
 
 ```bash
 git clone https://github.com/tencent-lexiang/lexiang-cli.git
