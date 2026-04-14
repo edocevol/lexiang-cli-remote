@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: vscode-release
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v5
 
@@ -44,18 +44,25 @@ jobs:
 
       - name: Publish to VS Code Marketplace
         run: npx vsce publish --no-dependencies
+        if: env.VSCE_PAT != ''
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
+      - name: Install ovsx
+        if: env.OVSX_PAT != ''
+        run: npm install -g ovsx
+
       - name: Publish to Open VSX Registry
-        run: npx ovsx publish --no-dependencies
+        run: ovsx publish --no-dependencies
         if: env.OVSX_PAT != ''
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
 
-      - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: lefs-vscode-${{ steps.version.outputs.version }}
-          path: packages/app-vscode/*.vsix
-          if-no-files-found: error
+          name: VS Code Extension v${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          files: packages/app-vscode/*.vsix
+          generate_release_notes: true
