@@ -44,7 +44,7 @@ jobs:
         run: pnpm build
 
       - name: Verify npm token
-        run: test -n "$NODE_AUTH_TOKEN"
+        run: test -n "$NODE_AUTH_TOKEN" || (echo "Error: NPM_TOKEN secret is not configured" && exit 1)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
