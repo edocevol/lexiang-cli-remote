@@ -21,7 +21,7 @@
 | 类型 | 地址 | 说明 |
 |------|------|------|
 | CLI 二进制 | [GitHub Releases](https://github.com/tencent-lexiang/lexiang-cli/releases) | `lx` 命令行工具的稳定版本与安装脚本入口 |
-| OpenClaw npm 包 | [GitHub Packages](https://github.com/edocevol/lexiang-cli-remote/pkgs/npm/%40tencent-lexiang%2Fopenclaw-lexiang) | 包名 `@tencent-lexiang/openclaw-lexiang`，Registry：`https://npm.pkg.github.com` |
+| OpenClaw npm 包 | [npm](https://www.npmjs.com/package/@tencent-lexiang/openclaw-lexiang) | 包名 `@tencent-lexiang/openclaw-lexiang`，Registry：`https://registry.npmjs.org` |
 
 后续如果补充 VS Code 插件下载地址，也可以继续放在这一节统一维护。
 

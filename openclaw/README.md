@@ -85,7 +85,7 @@ pnpm run dev
 
 ## 发布 npm 包
 
-本包通过 GitHub Actions 自动发布到 **GitHub Packages**。无需配置额外的 npm token，直接使用 Actions 自动提供的 `GITHUB_TOKEN` 即可。
+本包通过 GitHub Actions 自动发布到 **npm 官方仓库**（`https://registry.npmjs.org`），需要在仓库 Secrets 中配置 `NPM_TOKEN`。
 
 发布流程：
 
@@ -98,9 +98,9 @@ pnpm run dev
    git push origin npm-v0.1.1
    ```
 
-3. GitHub Actions 会自动运行测试、构建并执行 `npm publish`，将包发布到 GitHub Packages（`https://npm.pkg.github.com`）。
+3. GitHub Actions 会自动运行测试、构建并执行 `npm publish`，将包发布到 npm 官方仓库（`https://registry.npmjs.org`）。
 
-> **注意**：安装该包的用户需要在本地 `.npmrc` 中配置 `@lexiang:registry=https://npm.pkg.github.com` 并提供个人 GitHub token（`read:packages` 权限）。
+> **注意**：包发布前请确保 `NPM_TOKEN` 拥有发布 `@tencent-lexiang/openclaw-lexiang` 的权限；安装用户无需额外配置 GitHub Packages 的 `.npmrc`。
 
 ## 发布预编译二进制
 
