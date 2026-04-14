@@ -43,6 +43,11 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Verify npm token
+        run: test -n "$NODE_AUTH_TOKEN"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Publish
         run: npm publish --access public
         env:
