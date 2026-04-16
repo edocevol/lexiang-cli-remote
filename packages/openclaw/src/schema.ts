@@ -6,7 +6,7 @@
  */
 
 import type { OpenClawPluginApi } from 'openclaw/plugin-sdk';
-import { execLxJson, execLx, isLxAvailable } from './cli.js';
+import { execLxJson, execLx, execLxSync, isLxAvailable } from './cli.js';
 import { formatToolResult, formatErrorResult } from './tools/helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -90,6 +90,18 @@ export async function loadSchema(): Promise<McpSchemaCollection | null> {
 /**
  * 从本地缓存加载 schema（如果有）
  */
+export function loadCachedSchemaSync(): McpSchemaCollection | null {
+  try {
+    const result = execLxSync(['tools', 'schema']);
+    if (result.exitCode !== 0) {
+      return null;
+    }
+    return JSON.parse(result.stdout) as McpSchemaCollection;
+  } catch {
+    return null;
+  }
+}
+
 export async function loadCachedSchema(): Promise<McpSchemaCollection | null> {
   try {
     // 使用 lx tools schema 获取完整 schema JSON

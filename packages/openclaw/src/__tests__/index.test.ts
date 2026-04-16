@@ -21,12 +21,13 @@ vi.mock('../cli.js', () => ({
 
 vi.mock('../schema.js', () => ({
   loadCachedSchema: vi.fn(),
+  loadCachedSchemaSync: vi.fn(),
   registerToolsFromSchema: vi.fn(),
   registerCoreTools: vi.fn(),
 }));
 
 import { isLxAvailable, getLxBinary, downloadLxBinary, getManualInstallHelp } from '../cli.js';
-import { loadCachedSchema, registerToolsFromSchema, registerCoreTools } from '../schema.js';
+import { loadCachedSchema, loadCachedSchemaSync, registerToolsFromSchema, registerCoreTools } from '../schema.js';
 
 describe('Plugin Registration', () => {
   let mockApi: any;
@@ -83,7 +84,7 @@ describe('Plugin Registration', () => {
   it('should register tools from schema when available', async () => {
     vi.mocked(isLxAvailable).mockReturnValue(true);
     vi.mocked(getLxBinary).mockResolvedValue('/usr/local/bin/lx');
-    vi.mocked(loadCachedSchema).mockResolvedValue({
+    vi.mocked(loadCachedSchemaSync).mockReturnValue({
       version: 'test',
       categories: [],
       tools: {
@@ -96,6 +97,34 @@ describe('Plugin Registration', () => {
 
     expect(registerToolsFromSchema).toHaveBeenCalled();
     expect(registerCoreTools).not.toHaveBeenCalled();
+  });
+
+  it('should register schema tools synchronously without returning a promise', async () => {
+    vi.mocked(isLxAvailable).mockReturnValue(true);
+    vi.mocked(getLxBinary).mockResolvedValue('/usr/local/bin/lx');
+    vi.mocked(loadCachedSchemaSync).mockReturnValue({
+      version: 'test',
+      categories: [],
+      tools: {
+        entry_list_children: { name: 'entry_list_children', description: 'List children' },
+      },
+    });
+
+    const plugin = (await import('../index.js')).default;
+    const registerResult = plugin.register(mockApi);
+
+    expect(registerResult).toBeUndefined();
+    expect(loadCachedSchemaSync).toHaveBeenCalled();
+    expect(loadCachedSchema).not.toHaveBeenCalled();
+    expect(registerToolsFromSchema).toHaveBeenCalledWith(
+      mockApi,
+      expect.objectContaining({
+        tools: expect.objectContaining({
+          entry_list_children: expect.objectContaining({ name: 'entry_list_children' }),
+        }),
+      }),
+      expect.any(Object),
+    );
   });
 
   it('should fallback to core tools when schema is empty', async () => {

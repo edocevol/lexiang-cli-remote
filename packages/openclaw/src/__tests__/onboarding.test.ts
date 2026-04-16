@@ -11,6 +11,7 @@ vi.mock('../cli.js', () => ({
   isLxAvailable: vi.fn(),
   downloadLxBinary: vi.fn(),
   execLx: vi.fn(),
+  checkForLxUpdate: vi.fn(),
   getManualInstallHelp: vi.fn(() => ({
     command: 'cargo install lexiang-cli',
     repoUrl: 'https://github.com/test/repo',
@@ -18,12 +19,19 @@ vi.mock('../cli.js', () => ({
   })),
 }));
 
-import { isLxAvailable, downloadLxBinary, execLx, getManualInstallHelp } from '../cli.js';
+import { isLxAvailable, downloadLxBinary, execLx, checkForLxUpdate, getManualInstallHelp } from '../cli.js';
 import { lexiangOnboardingAdapter } from '../onboarding.js';
 
 describe('Onboarding Adapter', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.mocked(checkForLxUpdate).mockResolvedValue({
+      updateAvailable: false,
+      currentVersion: '0.1.0',
+      latestVersion: '0.1.0',
+      releaseTag: 'cli-v0.1.0',
+    });
     // Reset env
     delete process.env.LEXIANG_ACCESS_TOKEN;
   });
@@ -114,6 +122,95 @@ describe('Onboarding Adapter', () => {
       expect(result.success).toBe(true);
     });
 
+    it('should auto-update installed CLI when a newer compatible release exists', async () => {
+      vi.mocked(isLxAvailable).mockReturnValue(true);
+      vi.mocked(execLx).mockResolvedValue({
+        stdout: 'lexiang-cli v0.1.0',
+        stderr: '',
+        exitCode: 0,
+      });
+      vi.mocked(checkForLxUpdate).mockResolvedValue({
+        updateAvailable: true,
+        currentVersion: '0.1.0',
+        latestVersion: '0.2.0',
+        releaseTag: 'cli-v0.2.0',
+      });
+      vi.mocked(downloadLxBinary).mockResolvedValue('/path/to/lx');
+
+      const mockPrompter = {
+        note: vi.fn(),
+        confirm: vi.fn().mockResolvedValue(true),
+        text: vi.fn().mockResolvedValue('eyJnew-token'),
+        select: vi.fn(),
+      };
+
+      const result = await lexiangOnboardingAdapter.configure({
+        cfg: {},
+        prompter: mockPrompter,
+      });
+
+      expect(checkForLxUpdate).toHaveBeenCalledWith('0.1.0');
+      expect(downloadLxBinary).toHaveBeenCalled();
+      expect(result.success).toBe(true);
+    });
+
+    it('should continue when update check fails for an installed CLI', async () => {
+      vi.mocked(isLxAvailable).mockReturnValue(true);
+      vi.mocked(execLx).mockResolvedValue({
+        stdout: 'lexiang-cli v0.1.0',
+        stderr: '',
+        exitCode: 0,
+      });
+      vi.mocked(checkForLxUpdate).mockRejectedValue(new Error('github unavailable'));
+      process.env.LEXIANG_ACCESS_TOKEN = 'eyJenv-token';
+
+      const mockPrompter = {
+        note: vi.fn(),
+        confirm: vi.fn().mockResolvedValue(true),
+        text: vi.fn(),
+        select: vi.fn(),
+      };
+
+      const result = await lexiangOnboardingAdapter.configure({
+        cfg: {},
+        prompter: mockPrompter,
+      });
+
+      expect(result.success).toBe(true);
+      expect(downloadLxBinary).not.toHaveBeenCalled();
+    });
+
+    it('should continue when auto-update download fails for an installed CLI', async () => {
+      vi.mocked(isLxAvailable).mockReturnValue(true);
+      vi.mocked(execLx).mockResolvedValue({
+        stdout: 'lexiang-cli v0.1.0',
+        stderr: '',
+        exitCode: 0,
+      });
+      vi.mocked(checkForLxUpdate).mockResolvedValue({
+        updateAvailable: true,
+        currentVersion: '0.1.0',
+        latestVersion: '0.2.0',
+        releaseTag: 'cli-v0.2.0',
+      });
+      vi.mocked(downloadLxBinary).mockRejectedValue(new Error('download failed'));
+      process.env.LEXIANG_ACCESS_TOKEN = 'eyJenv-token';
+
+      const mockPrompter = {
+        note: vi.fn(),
+        confirm: vi.fn().mockResolvedValue(true),
+        text: vi.fn(),
+        select: vi.fn(),
+      };
+
+      const result = await lexiangOnboardingAdapter.configure({
+        cfg: {},
+        prompter: mockPrompter,
+      });
+
+      expect(result.success).toBe(true);
+    });
+
     it('should prompt for token when not configured', async () => {
       vi.mocked(isLxAvailable).mockReturnValue(true);
       vi.mocked(execLx).mockResolvedValue({
@@ -183,6 +280,12 @@ describe('Onboarding Adapter', () => {
         stdout: 'lexiang-cli v0.1.0',
         stderr: '',
         exitCode: 0,
+      });
+      vi.mocked(checkForLxUpdate).mockResolvedValue({
+        updateAvailable: false,
+        currentVersion: '0.1.0',
+        latestVersion: '0.1.0',
+        releaseTag: 'cli-v0.1.0',
       });
 
       const mockPrompter = {
