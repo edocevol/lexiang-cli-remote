@@ -1,69 +1,39 @@
-//! Auth methods: auth/status, auth/login
+//! Auth methods: auth/status, auth/login, auth/startOAuth, auth/completeOAuth, auth/logout
 
 use crate::rpc_method;
 use crate::serve::{error_codes, JsonRpcError, JsonRpcResult, ServeContext};
 use serde_json::Value;
 
-async fn handle_auth_status(ctx: &ServeContext, params: Value) -> JsonRpcResult {
-    let company_from = params.get("companyFrom").and_then(|v| v.as_str());
-
-    let Ok(client) = ctx.mcp_client().await else {
-        return Ok(serde_json::json!({
-            "authenticated": false,
-            "companyFrom": company_from,
-        }));
+async fn handle_auth_status(_ctx: &ServeContext, _params: Value) -> JsonRpcResult {
+    // 检查本地 token 文件是否存在且未过期
+    let has_valid_token = match crate::auth::load_token() {
+        Ok(Some(token)) => !crate::auth::is_expired_public(&token),
+        _ => false,
     };
 
-    match ctx
-        .mcp_call_with(&client, "contact_whoami", serde_json::json!({}))
-        .await
-    {
-        Ok(user_data) => {
-            // 构建 mcpUrl（如果 company_from 已知）
-            let mcp_url = company_from.map(|cf| format!("https://{}.lexiangla.com/api/mcp", cf));
-
-            Ok(serde_json::json!({
-                "authenticated": true,
-                "user": user_data,
-                "companyFrom": company_from,
-                "mcpUrl": mcp_url,
-            }))
-        }
-        Err(_) => Ok(serde_json::json!({
-            "authenticated": false,
-            "companyFrom": company_from,
-        })),
-    }
+    Ok(serde_json::json!({
+        "authenticated": has_valid_token,
+    }))
 }
 
-async fn handle_auth_login(ctx: &ServeContext, params: Value) -> JsonRpcResult {
-    let company_from = ctx.require_str(&params, "companyFrom")?;
-
-    // 使用 lx login 命令进行认证
-    // 通过 MCP 的 ensure_authenticated 机制触发浏览器登录
-    let client = match ctx.mcp_client_for(company_from).await {
-        Ok(c) => c,
-        Err(e) => {
-            return Err(JsonRpcError::new(
-                error_codes::AUTH_REQUIRED,
-                format!("Failed to create MCP client for {}: {}", company_from, e),
-            ));
-        }
-    };
+async fn handle_auth_login(ctx: &ServeContext, _params: Value) -> JsonRpcResult {
+    // RPC 模式下不需要 companyFrom，直接返回成功
+    let client = ctx.mcp_client().await.map_err(|e| {
+        JsonRpcError::new(
+            error_codes::AUTH_REQUIRED,
+            format!("Authentication failed: {}", e),
+        )
+    })?;
 
     // 尝试调用 whoami 来验证认证是否成功
     match ctx
         .mcp_call_with(&client, "contact_whoami", serde_json::json!({}))
         .await
     {
-        Ok(user_data) => {
-            let mcp_url = format!("https://{}.lexiangla.com/api/mcp", company_from);
-            Ok(serde_json::json!({
-                "success": true,
-                "mcpUrl": mcp_url,
-                "user": user_data,
-            }))
-        }
+        Ok(user_data) => Ok(serde_json::json!({
+            "success": true,
+            "user": user_data,
+        })),
         Err(e) => Err(JsonRpcError::new(
             error_codes::AUTH_REQUIRED,
             format!("Authentication failed: {}", e),
@@ -71,5 +41,104 @@ async fn handle_auth_login(ctx: &ServeContext, params: Value) -> JsonRpcResult {
     }
 }
 
+/// 两阶段 OAuth 第一阶段：启动回调服务器，返回授权 URL
+///
+/// VS Code 扩展调用此方法获取 `authUrl`，然后用
+/// `vscode.env.openExternal(authUrl)` 打开浏览器（兼容 Remote SSH），
+/// 最后调用 `auth/completeOAuth` 等待完成。
+async fn handle_auth_start_oauth(ctx: &ServeContext, _params: Value) -> JsonRpcResult {
+    let (auth_url, pending) = crate::auth::login_start()
+        .await
+        .map_err(|e| JsonRpcError::new(error_codes::INTERNAL_ERROR, e.to_string()))?;
+
+    // 存入共享状态
+    {
+        let mut state = ctx.state.write().await;
+        state.pending_oauth = Some(pending);
+    }
+
+    Ok(serde_json::json!({
+        "authUrl": auth_url,
+    }))
+}
+
+/// 两阶段 OAuth 第二阶段：等待回调完成
+///
+/// VS Code 扩展在打开浏览器后调用此方法轮询结果。
+/// 超时时间建议设为 120 秒。
+async fn handle_auth_complete_oauth(ctx: &ServeContext, _params: Value) -> JsonRpcResult {
+    let pending = {
+        let state = ctx.state.read().await;
+        state.pending_oauth.clone()
+    };
+
+    let Some(pending) = pending else {
+        return Err(JsonRpcError::new(
+            error_codes::AUTH_REQUIRED,
+            "No pending OAuth flow. Call auth/startOAuth first.",
+        ));
+    };
+
+    // 等待回调完成（最多 120 秒）
+    let token_result =
+        tokio::time::timeout(std::time::Duration::from_secs(120), pending.wait()).await;
+
+    // 无论成功/失败/超时，都关闭回调服务器
+    pending.abort_server();
+
+    // 清除 pending 状态
+    {
+        let mut state = ctx.state.write().await;
+        state.pending_oauth = None;
+    }
+
+    let token = token_result
+        .map_err(|_| {
+            JsonRpcError::new(
+                error_codes::AUTH_REQUIRED,
+                "OAuth flow timed out (120s). Please try again.",
+            )
+        })?
+        .map_err(|e| {
+            JsonRpcError::new(error_codes::AUTH_REQUIRED, format!("OAuth failed: {}", e))
+        })?;
+
+    // token 已在 handle_callback 中保存到文件，这里只需更新内存缓存
+    {
+        let mut state = ctx.state.write().await;
+        state.access_token = Some(token.access_token.clone());
+        state.cached_mcp_client = None; // token 变化，强制下次重建
+        tracing::info!(
+            token_len = token.access_token.len(),
+            "auth/completeOAuth: mcp client cache cleared"
+        );
+    }
+
+    Ok(serde_json::json!({
+        "success": true,
+    }))
+}
+
+/// 登出：删除本地 token
+async fn handle_auth_logout(ctx: &ServeContext, _params: Value) -> JsonRpcResult {
+    crate::auth::logout()
+        .map_err(|e| JsonRpcError::new(error_codes::INTERNAL_ERROR, e.to_string()))?;
+
+    // 清除内存中的 token 和缓存的 MCP client
+    {
+        let mut state = ctx.state.write().await;
+        state.access_token = None;
+        state.pending_oauth = None;
+        state.cached_mcp_client = None;
+    }
+
+    Ok(serde_json::json!({
+        "success": true,
+    }))
+}
+
 inventory::submit! { rpc_method!("auth/status", handle_auth_status) }
 inventory::submit! { rpc_method!("auth/login", handle_auth_login) }
+inventory::submit! { rpc_method!("auth/startOAuth", handle_auth_start_oauth) }
+inventory::submit! { rpc_method!("auth/completeOAuth", handle_auth_complete_oauth) }
+inventory::submit! { rpc_method!("auth/logout", handle_auth_logout) }

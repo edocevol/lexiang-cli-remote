@@ -85,6 +85,7 @@ jobs:
           key: ${{ matrix.target }}
 
       - name: Fetch dependencies
+        if: ${{ !matrix.use_cross }}
         run: cargo fetch --target ${{ matrix.target }}
 
       - name: Resolve release version

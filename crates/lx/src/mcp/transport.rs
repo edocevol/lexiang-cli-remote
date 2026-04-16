@@ -3,6 +3,7 @@ use anyhow::Result;
 
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
 
+#[derive(Clone)]
 pub struct HttpTransport {
     client: reqwest::Client,
     url: String,
@@ -22,6 +23,11 @@ impl HttpTransport {
         })
     }
 
+    /// 返回当前使用的 `access_token（用于缓存判断`）
+    pub fn access_token(&self) -> Option<&str> {
+        self.access_token.as_deref()
+    }
+
     pub async fn call<T: for<'de> serde::Deserialize<'de> + Default>(
         &self,
         method: &str,
@@ -36,7 +42,23 @@ impl HttpTransport {
 
         let response = request_builder.send().await?;
 
-        let rpc_response: JsonRpcResponse<T> = response.json().await?;
+        // 先拿到完整 JSON 做日志（含 result 外层字段）
+        let raw_json: serde_json::Value = response.json().await?;
+        let rpc_response: JsonRpcResponse<T> = serde_json::from_value(raw_json.clone())?;
+
+        // 统一记录 MCP 调用日志（含 request_id）
+        if rpc_response.result.is_some() {
+            let result_raw = &raw_json["result"];
+            let rid = result_raw
+                .get("request_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            let code = result_raw
+                .get("code")
+                .and_then(serde_json::Value::as_i64)
+                .unwrap_or(0);
+            tracing::info!(method = method, request_id = rid, code = code, "MCP call");
+        }
 
         if let Some(error) = rpc_response.error {
             anyhow::bail!("MCP error {}: {}", error.code, error.message);

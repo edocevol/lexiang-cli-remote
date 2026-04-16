@@ -1,4 +1,4 @@
-name: VS Code Extension Publish
+name: VS Code Extension Release
 
 on:
   push:
@@ -10,10 +10,9 @@ defaults:
     working-directory: packages/app-vscode
 
 jobs:
-  publish:
-    name: Publish to Marketplace
+  release:
+    name: Build & Release
     runs-on: ubuntu-latest
-    environment: vscode-release
     permissions:
       contents: write
     steps:
@@ -41,17 +40,6 @@ jobs:
         run: |
           version="${GITHUB_REF#refs/tags/vscode-v}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Publish to VS Code Marketplace
-        run: npx vsce publish --no-dependencies
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-
-      - name: Publish to Open VSX Registry
-        run: npx ovsx publish --no-dependencies
-        if: env.OVSX_PAT != ''
-        env:
-          OVSX_PAT: ${{ secrets.OVSX_PAT }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

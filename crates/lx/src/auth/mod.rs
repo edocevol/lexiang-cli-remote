@@ -1,21 +1,27 @@
 //! 认证模块 —— OAuth 登录、Token 存储与刷新
 //!
-//! 对外只暴露三样东西：
-//!   - `login()`          — OAuth 2.0 登录
-//!   - `logout()`         — 登出（删除本地 token）
-//!   - `get_access_token` — 获取有效 token（自动刷新）
+//! 对外暴露：
+//!   - `login()`           — OAuth 2.0 登录（CLI 一次性流程）
+//!   - `login_start()`     — OAuth 两阶段：启动回调服务器，返回授权 URL
+//!   - `login_wait()`      — OAuth 两阶段：等待回调完成，返回 token
+//!   - `logout()`          — 登出（删除本地 token）
+//!   - `get_access_token`  — 获取有效 token（自动刷新）
 
 use crate::config::Config;
 use crate::datadir;
 use anyhow::Result;
+use axum::extract::Query;
+use axum::response::Html;
+use axum::routing::get;
+use axum::Router;
 use oauth2::{CsrfToken, PkceCodeChallenge, PkceCodeVerifier};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::Mutex;
-use warp::Filter;
+use tokio::sync::{Mutex, Notify};
 
 // ═══════════════════════════════════════════════════════════
 //  常量
@@ -76,6 +82,103 @@ struct CallbackQuery {
     state: String,
 }
 
+/// 进行中的 OAuth 状态（两阶段登录）
+///
+/// `auth/startOAuth` 创建，回调服务器写入完成信号，
+/// `auth/completeOAuth` 等待并读取结果。
+pub struct PendingOAuth {
+    /// 期望的 CSRF state（用于验证回调）
+    pub expected_state: String,
+    /// 回调服务器端口
+    pub callback_port: u16,
+    /// OAuth 配置（token exchange 需要）
+    oauth_config: OAuthServerConfig,
+    /// 动态注册的客户端信息
+    client_registration: ClientRegistration,
+    /// PKCE verifier（exchange code 需要）
+    pkce_verifier: Arc<Mutex<Option<PkceCodeVerifier>>>,
+    /// `redirect_uri（exchange` code 需要）
+    redirect_uri: String,
+    /// 回调完成通知
+    completed: Notify,
+    /// 回调结果
+    result: Arc<Mutex<Option<Result<TokenData>>>>,
+    /// 回调服务器任务句柄（OAuth 完成后关闭）
+    server_handle: Option<tokio::task::AbortHandle>,
+}
+
+impl PendingOAuth {
+    /// 处理 OAuth 回调：验证 state，用 code 换 token，然后关闭回调服务器
+    pub async fn handle_callback(&self, code: String, state: String) {
+        if state != self.expected_state {
+            let mut result = self.result.lock().await;
+            *result = Some(Err(anyhow::anyhow!("Invalid state parameter")));
+            self.abort_server();
+            self.completed.notify_one();
+            return;
+        }
+
+        let pkce_verifier = {
+            let mut guard = self.pkce_verifier.lock().await;
+            guard.take()
+        };
+        let Some(verifier) = pkce_verifier else {
+            let mut result = self.result.lock().await;
+            *result = Some(Err(anyhow::anyhow!("PKCE verifier already used")));
+            self.abort_server();
+            self.completed.notify_one();
+            return;
+        };
+
+        let http = Client::new();
+        let token_result = exchange_code(
+            &http,
+            &self.oauth_config,
+            &self.client_registration,
+            code,
+            &self.redirect_uri,
+            verifier,
+        )
+        .await;
+
+        if let Ok(ref token) = token_result {
+            tracing::info!(
+                token_len = token.access_token.len(),
+                "OAuth callback: saving token"
+            );
+            if let Err(e) = save_token(token) {
+                tracing::warn!(error = %e, "OAuth callback: save_token failed");
+            } else {
+                tracing::info!("OAuth callback: token saved successfully");
+            }
+        }
+
+        // 关闭回调服务器（无论成功失败）
+        self.abort_server();
+
+        let mut result = self.result.lock().await;
+        *result = Some(token_result);
+        self.completed.notify_one();
+    }
+
+    /// 关闭回调 HTTP 服务器
+    pub fn abort_server(&self) {
+        if let Some(ref handle) = self.server_handle {
+            handle.abort();
+            tracing::debug!("OAuth callback server aborted");
+        }
+    }
+
+    /// 等待回调完成并返回结果
+    pub async fn wait(&self) -> Result<TokenData> {
+        self.completed.notified().await;
+        let mut guard = self.result.lock().await;
+        guard
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("OAuth callback not completed"))?
+    }
+}
+
 // ═══════════════════════════════════════════════════════════
 //  公开 API
 // ═══════════════════════════════════════════════════════════
@@ -106,36 +209,62 @@ pub async fn get_access_token(config: &Config) -> Result<String> {
 }
 
 /// OAuth 2.0 登录（PKCE + 动态客户端注册）
+///
+/// CLI 一次性流程：启动回调服务器 → 打印授权链接 → 阻塞等待回调 → 保存 token
 pub async fn login() -> Result<TokenData> {
+    println!("正在获取 OAuth 配置...");
+    let (auth_url, pending) = start_oauth_server().await?;
+    println!("\n请在浏览器中完成登录。授权链接:\n{auth_url}\n");
+    let token = pending.wait().await?;
+    Ok(token)
+}
+
+/// 登出 —— 删除本地 token
+pub fn logout() -> Result<()> {
+    delete_token()
+}
+
+/// 两阶段 OAuth 登录 — 第一阶段：启动回调服务器，返回授权 URL
+///
+/// 适用于 VS Code 等编辑器扩展场景：编辑器用 `vscode.env.openExternal()` 打开浏览器，
+/// 然后调用 `pending.wait()` 等待完成。Remote SSH 下也能正常工作。
+pub async fn login_start() -> Result<(String, Arc<PendingOAuth>)> {
+    start_oauth_server().await
+}
+
+/// 底层 OAuth 启动逻辑：获取配置 → 启动回调服务器 → 注册客户端 → 生成授权 URL → 构造 `PendingOAuth`
+///
+/// `login()` 和 `login_start()` 都调用此函数，统一存储和回调处理逻辑。
+async fn start_oauth_server() -> Result<(String, Arc<PendingOAuth>)> {
     let http = Client::new();
 
     // 1. 获取 OAuth 服务端配置
-    println!("正在获取 OAuth 配置...");
     let oauth_cfg = fetch_oauth_config(&http).await?;
 
     // 2. 启动本地回调服务器
     let (tx, rx) = tokio::sync::oneshot::channel();
     let tx = Arc::new(Mutex::new(Some(tx)));
 
-    let route =
-        warp::path::end()
-            .and(warp::query::<CallbackQuery>())
-            .then(move |query: CallbackQuery| {
-                let tx = tx.clone();
-                async move {
-                    if let Some(tx) = tx.lock().await.take() {
-                        let _ = tx.send(query);
-                    }
-                    warp::reply::html("<html><body><h1>登录成功，请关闭此页面</h1></body></html>")
+    let app = Router::new().route(
+        "/",
+        get(move |query: Query<CallbackQuery>| {
+            let tx = tx.clone();
+            async move {
+                if let Some(tx) = tx.lock().await.take() {
+                    let _ = tx.send(query.0);
                 }
-            });
+                Html("<html><body><h1>登录成功，请关闭此页面</h1></body></html>")
+            }
+        }),
+    );
 
     let mut actual_port = CALLBACK_START_PORT;
-    let server = loop {
-        match warp::serve(route.clone()).try_bind_ephemeral(([127, 0, 0, 1], actual_port)) {
-            Ok((addr, server)) => {
-                println!("OAuth 回调端口: {}", addr.port());
-                break server;
+    let listener = loop {
+        let addr = SocketAddr::from(([127, 0, 0, 1], actual_port));
+        match tokio::net::TcpListener::bind(addr).await {
+            Ok(listener) => {
+                tracing::debug!("OAuth 回调端口: {}", actual_port);
+                break listener;
             }
             Err(_) => {
                 actual_port += 1;
@@ -151,15 +280,18 @@ pub async fn login() -> Result<TokenData> {
     };
 
     let redirect_uri = format!("http://127.0.0.1:{}", actual_port);
-    tokio::spawn(server);
+    let server_handle = tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    })
+    .abort_handle();
 
     // 3. 动态注册客户端
-    println!("正在注册客户端...");
     let reg = register_client(&http, &oauth_cfg, &redirect_uri).await?;
 
     // 4. PKCE + CSRF
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
     let state = CsrfToken::new_random();
+    let state_secret = state.secret().to_string();
 
     // 5. 授权 URL
     let auth_url = format!(
@@ -168,42 +300,41 @@ pub async fn login() -> Result<TokenData> {
         reg.client_id,
         urlencoding::encode(&redirect_uri),
         oauth_cfg.scopes_supported.join("+"),
-        state.secret(),
+        state_secret,
         pkce_challenge.as_str(),
     );
-    // 完整 URL 含 CSRF state 和 PKCE challenge，仅 debug 级别记录，避免明文泄露到终端
-    tracing::debug!("OAuth authorization URL: {auth_url}");
 
-    // 尝试自动打开浏览器，失败时提示用户设置 debug 日志
-    if let Err(e) = open_browser(&auth_url) {
-        tracing::debug!("无法自动打开浏览器: {e}");
-    }
-    println!("\n请在浏览器中完成登录。如未自动打开，请设置 RUST_LOG=debug 查看授权链接。\n");
+    // 6. 构造 PendingOAuth
+    let pending = Arc::new(PendingOAuth {
+        expected_state: state_secret,
+        callback_port: actual_port,
+        oauth_config: oauth_cfg,
+        client_registration: reg,
+        pkce_verifier: Arc::new(Mutex::new(Some(pkce_verifier))),
+        redirect_uri,
+        completed: Notify::new(),
+        result: Arc::new(Mutex::new(None)),
+        server_handle: Some(server_handle),
+    });
 
-    // 6. 等待回调
-    let callback = rx.await?;
-    if &callback.state != state.secret() {
-        anyhow::bail!("Invalid state parameter");
-    }
+    // 7. 后台等待回调 → handle_callback 里会 save_token + abort_server
+    let pending_clone = pending.clone();
+    tokio::spawn(async move {
+        match rx.await {
+            Ok(callback) => {
+                pending_clone
+                    .handle_callback(callback.code, callback.state)
+                    .await;
+            }
+            Err(_) => {
+                let mut result = pending_clone.result.lock().await;
+                *result = Some(Err(anyhow::anyhow!("OAuth callback channel closed")));
+                pending_clone.completed.notify_one();
+            }
+        }
+    });
 
-    // 7. 用授权码换 token
-    let token = exchange_code(
-        &http,
-        &oauth_cfg,
-        &reg,
-        callback.code,
-        &redirect_uri,
-        pkce_verifier,
-    )
-    .await?;
-    save_token(&token)?;
-
-    Ok(token)
-}
-
-/// 登出 —— 删除本地 token
-pub fn logout() -> Result<()> {
-    delete_token()
+    Ok((auth_url, pending))
 }
 
 /// 直接保存 access token（跳过 OAuth 流程）
@@ -227,7 +358,7 @@ fn token_path() -> Result<PathBuf> {
     Ok(datadir::auth_dir().join(TOKEN_FILE))
 }
 
-fn save_token(token: &TokenData) -> Result<()> {
+pub fn save_token(token: &TokenData) -> Result<()> {
     let path = token_path()?;
     let json = serde_json::to_string_pretty(token)?;
     fs::write(&path, json)?;
@@ -265,11 +396,15 @@ fn delete_token() -> Result<()> {
 //  Token 有效性检查 & 自动刷新
 // ═══════════════════════════════════════════════════════════
 
-fn is_expired(token: &TokenData) -> bool {
+pub fn is_expired_public(token: &TokenData) -> bool {
     match token.expires_at {
         Some(expires_at) => chrono::Utc::now().timestamp() >= expires_at - 300, // 提前 5 分钟
         None => false,
     }
+}
+
+fn is_expired(token: &TokenData) -> bool {
+    is_expired_public(token)
 }
 
 /// 获取有效 token：未过期直接返回，过期则尝试 refresh，失败返回 None
@@ -423,21 +558,4 @@ async fn exchange_code(
     })
 }
 
-/// 尝试用系统默认浏览器打开 URL
-fn open_browser(url: &str) -> Result<()> {
-    #[cfg(target_os = "macos")]
-    {
-        std::process::Command::new("open").arg(url).spawn()?;
-    }
-    #[cfg(target_os = "linux")]
-    {
-        std::process::Command::new("xdg-open").arg(url).spawn()?;
-    }
-    #[cfg(target_os = "windows")]
-    {
-        std::process::Command::new("cmd")
-            .args(["/c", "start", url])
-            .spawn()?;
-    }
-    Ok(())
-}
+// open_browser 已移除 — 不允许自动打开浏览器，用户需手动复制链接

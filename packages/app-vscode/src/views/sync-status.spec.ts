@@ -25,7 +25,7 @@ function makeMockDb(opts: {
 }
 
 // 提取 syncEntries 中"已有内容时补齐 sync_status"的核心逻辑为可测试的纯函数
-// （与 webdav-manager.ts 中的实现保持一致）
+// （与 space-registry.ts 中的实现保持一致）
 function ensureSyncedIfContentExists(
     db: ReturnType<typeof makeMockDb>,
     entryId: string,

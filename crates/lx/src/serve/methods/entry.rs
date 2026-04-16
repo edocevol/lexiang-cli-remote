@@ -6,16 +6,21 @@ use serde_json::Value;
 
 async fn handle_entry_describe(ctx: &ServeContext, params: Value) -> JsonRpcResult {
     let entry_id = ctx.require_str(&params, "entry_id")?;
-    ctx.mcp_call(
-        "entry_describe_entry",
-        serde_json::json!({ "entry_id": entry_id }),
-    )
-    .await
+    let result = ctx
+        .mcp_call(
+            "entry_describe_entry",
+            serde_json::json!({ "entry_id": entry_id }),
+        )
+        .await?;
+    // mcp_call_with 已经处理了 { code, message, data } 格式，这里 result 就是 data
+    // data 是 { entry: {...} }，提取 entry 返回给前端
+    let entry = result.get("entry").cloned().unwrap_or(result);
+    Ok(entry)
 }
 
 async fn handle_entry_tree(ctx: &ServeContext, params: Value) -> JsonRpcResult {
     let space_id = ctx.require_str(&params, "space_id")?;
-    let depth = params.get("depth").and_then(Value::as_u64).unwrap_or(3) as usize;
+    let depth = params.get("depth").and_then(Value::as_u64).unwrap_or(1) as usize;
 
     let client = ctx.mcp_client().await?;
 
@@ -27,10 +32,10 @@ async fn handle_entry_tree(ctx: &ServeContext, params: Value) -> JsonRpcResult {
         )
         .await?;
 
+    // mcp_call_with 已经处理了 { code, message, data } 格式，这里 space_result 就是 data
     let root_entry_id = space_result
-        .pointer("/data/space/root_entry_id")
-        .or_else(|| space_result.pointer("/data/root_entry_id"))
-        .or_else(|| space_result.pointer("/space/root_entry_id"))
+        .pointer("/space/root_entry_id")
+        .or_else(|| space_result.pointer("/root_entry_id"))
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
             JsonRpcError::new(error_codes::NOT_FOUND, "Cannot determine root_entry_id")
@@ -50,14 +55,14 @@ async fn build_entry_tree(
         .mcp_call_with(
             client,
             "entry_list_children",
-            serde_json::json!({ "parent_entry_id": parent_id }),
+            serde_json::json!({ "parent_id": parent_id }),
         )
         .await?;
 
+    // mcp_call_with 已经处理了 { code, message, data } 格式，这里 result 就是 data
+    // data 是 { entries: [...] }
     let entries = result
-        .pointer("/data/entries")
-        .or_else(|| result.get("entries"))
-        .or_else(|| result.get("data"))
+        .get("entries")
         .and_then(|v| v.as_array())
         .cloned()
         .unwrap_or_default();
@@ -125,7 +130,10 @@ async fn handle_entry_content(ctx: &ServeContext, params: Value) -> JsonRpcResul
             serde_json::json!({ "entry_id": entry_id }),
         )
         .await?;
-    Ok(serde_json::json!({ "entry_id": entry_id, "content": result }))
+    // mcp_call_with 已经处理了 { code, message, data } 格式，这里 result 就是 data
+    // data 是 { content: "..." }，提取 content
+    let content = result.get("content").and_then(|v| v.as_str()).unwrap_or("");
+    Ok(serde_json::json!({ "entry_id": entry_id, "content": content }))
 }
 
 async fn handle_entry_create(ctx: &ServeContext, params: Value) -> JsonRpcResult {
@@ -155,11 +163,11 @@ async fn handle_entry_rename(ctx: &ServeContext, params: Value) -> JsonRpcResult
 
 async fn handle_entry_move(ctx: &ServeContext, params: Value) -> JsonRpcResult {
     let entry_id = ctx.require_str(&params, "entry_id")?;
-    let parent_id = ctx.require_str(&params, "parent_id")?;
+    let parent_id = ctx.require_str(&params, "parent_entry_id")?;
     let result = ctx
         .mcp_call(
             "entry_move_entry",
-            serde_json::json!({ "entry_id": entry_id, "parent_entry_id": parent_id }),
+            serde_json::json!({ "entry_id": entry_id, "parent_id": parent_id }),
         )
         .await?;
     Ok(serde_json::json!({ "entry": result }))
@@ -170,10 +178,16 @@ async fn handle_entry_list_children(ctx: &ServeContext, params: Value) -> JsonRp
     let result = ctx
         .mcp_call(
             "entry_list_children",
-            serde_json::json!({ "parent_entry_id": parent_id }),
+            serde_json::json!({ "parent_id": parent_id }),
         )
         .await?;
-    Ok(serde_json::json!({ "children": result }))
+    // mcp_call_with 已经处理了 { code, message, data } 格式，这里 result 就是 data
+    // data 是 { entries: [...] }，提取 entries
+    let entries = result
+        .get("entries")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!([]));
+    Ok(serde_json::json!({ "children": entries }))
 }
 
 async fn handle_entry_sync_content(ctx: &ServeContext, params: Value) -> JsonRpcResult {
@@ -192,6 +206,7 @@ async fn handle_entry_sync_content(ctx: &ServeContext, params: Value) -> JsonRpc
     let mut succeeded = 0u32;
     let mut failed = 0u32;
     let mut errors: Vec<Value> = Vec::new();
+    let mut succeeded_entry_ids: Vec<String> = Vec::new();
 
     for entry in &entries {
         let entry_id = entry
@@ -224,6 +239,7 @@ async fn handle_entry_sync_content(ctx: &ServeContext, params: Value) -> JsonRpc
         match result {
             Ok(_content) => {
                 succeeded += 1;
+                succeeded_entry_ids.push(entry_id.to_string());
             }
             Err(e) => {
                 failed += 1;
@@ -239,6 +255,7 @@ async fn handle_entry_sync_content(ctx: &ServeContext, params: Value) -> JsonRpc
         "succeeded": succeeded,
         "failed": failed,
         "errors": errors,
+        "succeeded_entry_ids": succeeded_entry_ids,
         "space_id": space_id,
         "force": force,
     }))

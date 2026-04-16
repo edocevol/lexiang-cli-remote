@@ -1,5 +1,6 @@
 import type { LxRpcClient } from '../rpc/lx-rpc-client.js';
 import { toUriSafeName } from '../rpc/lx-types.js';
+import { markEntrySynced } from '../services/content-status.js';
 import * as vscode from 'vscode';
 
 export const LEFS_FS_SCHEME = 'lefs';
@@ -28,7 +29,7 @@ export class LefsFileSystemProvider implements vscode.FileSystemProvider {
     this.rpcClient = client;
   }
 
-  /** 通知文件变更（由 WebDavManager.onDidChange 触发） */
+  /** 通知文件变更（由 SpaceRegistry.onDidChange 触发） */
   notifyChange(uri: vscode.Uri): void {
     this._emitter.fire([{ type: vscode.FileChangeType.Changed, uri }]);
   }
@@ -111,7 +112,7 @@ export class LefsFileSystemProvider implements vscode.FileSystemProvider {
       }
 
       const result = await this.rpcClient.sendRequest('entry/listChildren', params);
-      const entries = (result as Record<string, unknown>).entries as Array<Record<string, unknown>> ?? [];
+      const entries = (result as Record<string, unknown>).children as Array<Record<string, unknown>> ?? [];
       return entries.map((child) => {
         const type = child.entry_type === 'folder' ? vscode.FileType.Directory : vscode.FileType.File;
         const safeName = toUriSafeName(child.name as string);
@@ -144,6 +145,7 @@ export class LefsFileSystemProvider implements vscode.FileSystemProvider {
       });
       const content = (result as Record<string, unknown>).content as string;
       if (content) {
+        markEntrySynced(parsed.spaceId, parsed.entryId);
         return Buffer.from(content, 'utf8');
       }
       return Buffer.from(`<!-- 文档「${parsed.name}」尚未同步，请稍候... -->`);

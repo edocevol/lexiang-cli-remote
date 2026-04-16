@@ -27,7 +27,7 @@ import { registerCleanInvalidSpaces } from './clean-invalid-spaces.js';
 import { registerFetchEntryContent, registerFetchFolderContents } from './fetch-content.js';
 import { registerLogout } from './logout.js';
 import { registerRemoveSpace } from './remove-space.js';
-import { registerBrowserCommands, registerRefreshWebdavCommand,registerSpaceCommands } from './space-commands.js';
+import { registerBrowserCommands, registerRefreshCommand,registerSpaceCommands } from './space-commands.js';
 import type { CommandDeps } from './types.js';
 import { withCommand } from './types.js';
 
@@ -51,8 +51,8 @@ export function registerCommands(deps: CommandDeps): vscode.Disposable[] {
   // ── 浏览器打开命令 ───────────────────────────────────────────────────────
   disposables.push(...registerBrowserCommands(deps));
 
-  // ── 刷新 WebDAV ────────────────────────────────────────────────────────
-  disposables.push(registerRefreshWebdavCommand(deps));
+  // ── 刷新知识库 ────────────────────────────────────────────────────────
+  disposables.push(registerRefreshCommand(deps));
 
   // ── addToChat 命令 ─────────────────────────────────────────────────────
   disposables.push(...registerAddToChatCommands(deps));
@@ -76,6 +76,15 @@ export function registerCommands(deps: CommandDeps): vscode.Disposable[] {
   disposables.push(registerCleanInvalidSpaces(deps));
   disposables.push(registerCleanAllCaches(deps));
   disposables.push(registerLogout(deps));
+
+  // ── 状态面板命令（命令唤起） ─────────────────────────────────────────────
+  if (deps.showStatusPanel) {
+    disposables.push(
+      vscode.commands.registerCommand('lefs.showStatus',
+        withCommand('showStatus', deps.log, async () => { deps.showStatusPanel!(); }),
+      ),
+    );
+  }
 
   // ── 更新检查 ───────────────────────────────────────────────────────────
   disposables.push(

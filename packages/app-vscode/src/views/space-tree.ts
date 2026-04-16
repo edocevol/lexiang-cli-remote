@@ -2,6 +2,7 @@ import * as path from 'node:path';
 
 import { parseLxdoc } from '../rpc/lx-types.js';
 import type { LxRpcClient } from '../rpc/lx-rpc-client.js';
+import { markEntrySynced, onSyncedEntriesChange } from '../services/content-status.js';
 import * as vscode from 'vscode';
 
 /** 本地 withTimeout 替代 */
@@ -12,7 +13,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, _msg: string): Promise<
   ]);
 }
 
-import type { WebDavManager } from '../services/webdav-manager.js';
+import type { SpaceRegistry } from '../services/space-registry.js';
 import { DbTreeDataSource } from './db-tree-source.js';
 import type { LefsChatFileSystem } from './lefs-chat-fs.js';
 import type { TmpDirChatManager } from './lefs-chat-fs.js';
@@ -26,7 +27,7 @@ export class SpaceTreeItem extends vscode.TreeItem {
   constructor(
     public readonly spaceId: string,
     spaceName: string,
-    isMounted: boolean,
+    isActive: boolean,
     statusText: string,
     hasChildren: boolean,
   ) {
@@ -38,10 +39,10 @@ export class SpaceTreeItem extends vscode.TreeItem {
     );
     this.description = undefined;
     this.tooltip = statusText;
-    this.contextValue = isMounted ? 'space-mounted' : 'space';
+    this.contextValue = isActive ? 'space-mounted' : 'space';
     this.iconPath = new vscode.ThemeIcon(
-      isMounted ? 'cloud-upload' : 'database',
-      isMounted ? new vscode.ThemeColor('charts.green') : undefined,
+      isActive ? 'cloud-upload' : 'database',
+      isActive ? new vscode.ThemeColor('charts.green') : undefined,
     );
   }
 }
@@ -81,10 +82,9 @@ export class EntryTreeItem extends vscode.TreeItem {
       ? (opts.syncStatus === 'synced' ? '-synced' : '-unsynced')
       : '';
     this.contextValue = `entry-${entryType}${syncSuffix}`;
-    const { icon, statusDescription } = resolveEntrySyncStyle(opts.isFolder ?? false, opts.syncStatus);
+    const icon = resolveEntrySyncStyle(opts.isFolder ?? false, opts.syncStatus);
     this.iconPath = icon;
     this.label = entryName;
-    this.description = statusDescription;
 
     const contentStatusTip = !opts.isFolder
       ? (opts.syncStatus === 'synced' ? '✅ 内容已获取（本地缓存）' : '☁️ 内容未获取（右键 → 获取文档内容）')
@@ -153,11 +153,14 @@ export class SpaceTreeProvider implements vscode.TreeDataProvider<TreeNode> {
   private chatFs: LefsChatFileSystem | undefined;
   private rpcClient?: LxRpcClient;
 
-  constructor(private readonly webdavManager?: WebDavManager, rpcClient?: LxRpcClient) {
+  constructor(private readonly spaceRegistry?: SpaceRegistry, rpcClient?: LxRpcClient) {
     this.rpcClient = rpcClient;
     this.dbSource = new DbTreeDataSource(rpcClient);
 
-    webdavManager?.onDidChange(() => {
+    spaceRegistry?.onDidChange(() => {
+      this.refreshAll();
+    });
+    onSyncedEntriesChange(() => {
       this.refreshAll();
     });
   }
@@ -182,7 +185,7 @@ export class SpaceTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
     if (!element) {
-      return this.dbSource.getSpaceNodes(this.webdavManager);
+      return this.dbSource.getSpaceNodes(this.spaceRegistry);
     }
 
     if (element instanceof SpaceTreeItem) {
@@ -223,7 +226,7 @@ export class SpaceTreeProvider implements vscode.TreeDataProvider<TreeNode> {
       const rootId = space.root_entry_id as string | undefined;
       if (rootId && parentId === rootId) {
         return withTimeout(
-          this.dbSource.getSpaceNodes(this.webdavManager),
+          this.dbSource.getSpaceNodes(this.spaceRegistry),
           10_000,
           'resolveSpaceNode timeout',
         ).then((spaces) => spaces.find((s) => s.spaceId === element.spaceId));
@@ -272,20 +275,14 @@ function parseFsDirectoryName(dirName: string): { entryId: string; name: string 
 export function resolveEntrySyncStyle(
   isFolder: boolean,
   syncStatus?: string,
-): { icon: vscode.ThemeIcon; statusDescription: string | undefined } {
+): vscode.ThemeIcon {
   if (isFolder) {
-    return { icon: new vscode.ThemeIcon('folder'), statusDescription: undefined };
+    return new vscode.ThemeIcon('folder');
   }
   if (syncStatus === 'synced') {
-    return {
-      icon: new vscode.ThemeIcon('cloud', new vscode.ThemeColor('charts.green')),
-      statusDescription: '●',
-    };
+    return new vscode.ThemeIcon('check', new vscode.ThemeColor('charts.green'));
   }
-  return {
-    icon: new vscode.ThemeIcon('cloud-download'),
-    statusDescription: '○',
-  };
+  return new vscode.ThemeIcon('circle-large-outline', new vscode.ThemeColor('editorWarning.foreground'));
 }
 
 export function extractUrisFromNodes(source: TreeNode[]): string[] {
@@ -300,47 +297,57 @@ export function extractUrisFromNodes(source: TreeNode[]): string[] {
 
 /**
  * 为文件夹节点生成真实临时目录 URI。
- * 通过 RPC 获取子文档内容，写入临时目录供 AI agent 读取。
+ * ⚠️ 此操作会拉取子文档内容，需要用户确认后才能执行。
  */
-function prepareFolderUriForDrag(
+async function prepareFolderUriForDrag(
   spaceId: string,
-  entryId?: string,
-  tmpManager?: TmpDirChatManager,
-  rpcClient?: LxRpcClient,
+  entryId: string | undefined,
+  tmpManager: TmpDirChatManager | undefined,
+  rpcClient: LxRpcClient | undefined,
 ): Promise<string | undefined> {
-  if (!tmpManager) return Promise.resolve(undefined);
-  if (!rpcClient?.isRunning()) return Promise.resolve(undefined);
+  if (!tmpManager) return undefined;
+  if (!rpcClient?.isRunning()) return undefined;
+
+  // 先获取子条目数量，让用户确认
+  let targetEntryId = entryId;
+  let folderName = spaceId;
+
+  if (!targetEntryId) {
+    const spaceResult = await rpcClient.sendRequest('space/describe', { space_id: spaceId });
+    targetEntryId = (spaceResult as Record<string, unknown>).root_entry_id as string;
+  }
+  if (!targetEntryId) return undefined;
+
+  if (targetEntryId === entryId) {
+    const entryResult = await rpcClient.sendRequest('entry/describe', {
+      space_id: spaceId,
+      entry_id: targetEntryId,
+    });
+    folderName = (entryResult as Record<string, unknown>).name as string ?? spaceId;
+  }
+
+  const childrenResult = await rpcClient.sendRequest('entry/listChildren', {
+    space_id: spaceId,
+    parent_id: targetEntryId,
+  });
+  const children = (childrenResult as Record<string, unknown>).children as Array<Record<string, unknown>> ?? [];
+  const docChildren = children.filter(c => c.entry_type !== 'folder' && !(c.name as string).startsWith('.'));
+
+  if (docChildren.length === 0) return undefined;
+
+  // 用户确认：是否拉取文件夹内所有文档内容
+  const confirm = await vscode.window.showWarningMessage(
+    `即将获取「${folderName}」下 ${docChildren.length} 个文档的内容，是否继续？`,
+    { modal: true },
+    '获取内容',
+  );
+  if (confirm !== '获取内容') return undefined;
 
   return withTimeout(
     (async () => {
-      let targetEntryId = entryId;
-      let folderName = spaceId;
-
-      if (!targetEntryId) {
-        const spaceResult = await rpcClient.sendRequest('space/describe', { space_id: spaceId });
-        targetEntryId = (spaceResult as Record<string, unknown>).root_entry_id as string;
-      }
-      if (!targetEntryId) return undefined;
-
-      if (targetEntryId === entryId) {
-        const entryResult = await rpcClient.sendRequest('entry/describe', {
-          space_id: spaceId,
-          entry_id: targetEntryId,
-        });
-        folderName = (entryResult as Record<string, unknown>).name as string ?? spaceId;
-      }
-
-      const childrenResult = await rpcClient.sendRequest('entry/listChildren', {
-        space_id: spaceId,
-        parent_entry_id: targetEntryId,
-      });
-      const children = (childrenResult as Record<string, unknown>).entries as Array<Record<string, unknown>> ?? [];
       const files: Array<{ name: string; content: string }> = [];
 
-      for (const child of children) {
-        if ((child.name as string).startsWith('.')) continue;
-        if (child.entry_type === 'folder') continue;
-
+      for (const child of docChildren) {
         try {
           const contentResult = await rpcClient.sendRequest('entry/content', {
             space_id: spaceId,
@@ -348,6 +355,7 @@ function prepareFolderUriForDrag(
           });
           const raw = (contentResult as Record<string, unknown>).content as string;
           if (!raw) continue;
+          markEntrySynced(spaceId, child.entry_id as string);
           const lxdoc = parseLxdoc(raw);
           const body = lxdoc ? lxdoc.body : raw;
           files.push({ name: child.name as string, content: body });
@@ -360,7 +368,7 @@ function prepareFolderUriForDrag(
       const folderUri = tmpManager.writeFolder(folderName, files);
       return folderUri.toString();
     })(),
-    10_000,
+    30_000,
     'prepareFolderUriForDrag timeout',
   ).catch(() => undefined);
 }

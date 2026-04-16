@@ -14,6 +14,7 @@
 
 import { parseMcpEntry, type McpEntry } from '../rpc/lx-types.js';
 import type { LxRpcClient } from '../rpc/lx-rpc-client.js';
+import { markEntrySynced } from '../services/content-status.js';
 import type { KbStore, KbStoreFactory, UpsertEntryInput } from './kb-store.js';
 
 // ═══════════════════════════════════════════════════════════
@@ -114,7 +115,7 @@ export class RpcStore implements KbStore {
         space_id: this.spaceId,
         parent_entry_id: parentEntryId,
       });
-      const rawEntries = (result as Record<string, unknown>).entries as Array<Record<string, unknown>> ?? [];
+      const rawEntries = (result as Record<string, unknown>).children as Array<Record<string, unknown>> ?? [];
       const entries = rawEntries.map(parseMcpEntry);
 
       // 缓存子条目

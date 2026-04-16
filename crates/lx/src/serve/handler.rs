@@ -45,6 +45,7 @@ async fn dispatch_method(
     //    e.g., "block/listChildren" → MCP tool "block_list_block_children"
     //    This ensures new MCP tools are automatically available without code changes.
     if let Some(tool_name) = rpc_method_to_mcp_tool(method) {
+        tracing::info!(method = method, tool = %tool_name, "call_tool");
         return ctx.mcp_call(&tool_name, params).await;
     }
 

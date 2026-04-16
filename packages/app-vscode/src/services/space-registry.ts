@@ -1,5 +1,5 @@
 /**
- * 知识库同步管理器（原 WebDavManager）。
+ * 知识库注册表（原 WebDavManager）。
  *
  * 职责：
  * - 管理知识库的两阶段同步（结构同步 + 后台内容同步）
@@ -10,6 +10,7 @@
  */
 
 import type { LxRpcClient } from '../rpc/lx-rpc-client.js';
+import { clearSyncedEntries, markEntrySynced, markEntriesSynced } from './content-status.js';
 
 /** 简单遥测（替代 @tencent/lefs-core telemetryBus） */
 const telemetry = {
@@ -21,7 +22,7 @@ const telemetry = {
 type ChangeListener = () => void;
 type ProgressListener = (message: string | undefined) => void;
 
-/** 已激活的知识库信息（去掉 WebDAV/挂载相关字段） */
+/** 已激活的知识库信息 */
 export interface ActiveSpace {
   spaceId: string;
   spaceName: string;
@@ -29,18 +30,18 @@ export interface ActiveSpace {
 }
 
 /**
- * 知识库同步管理器。
+ * 知识库注册表。
  *
  * 通过 lx serve JSON-RPC 完成同步操作。
  */
-export class WebDavManager {
+export class SpaceRegistry {
   private readonly spaces = new Map<string, ActiveSpace>();
   private readonly changeListeners = new Set<ChangeListener>();
   private readonly progressListeners = new Set<ProgressListener>();
 
   constructor(private readonly rpcClient?: LxRpcClient) {}
 
-  /** 注册挂载变更监听器（用于刷新 TreeView 和状态栏） */
+  /** 注册变更监听器（用于刷新 TreeView 和状态栏） */
   onDidChange(listener: ChangeListener): { dispose: () => void } {
     this.changeListeners.add(listener);
     return {
@@ -73,18 +74,18 @@ export class WebDavManager {
     }
   }
 
-  /** 获取所有活跃的空间 */
+  /** 获取所有已激活的知识库 */
   getAll(): ActiveSpace[] {
     return Array.from(this.spaces.values());
   }
 
-  /** 获取指定空间信息 */
+  /** 获取指定知识库信息 */
   get(spaceId: string): ActiveSpace | undefined {
     return this.spaces.get(spaceId);
   }
 
-  /** 判断指定空间是否已激活 */
-  isMounted(spaceId: string): boolean {
+  /** 判断指定知识库是否已激活 */
+  isActive(spaceId: string): boolean {
     return this.spaces.has(spaceId);
   }
 
@@ -120,7 +121,7 @@ export class WebDavManager {
         const result = await this.rpcClient.sendRequest<{
           synced: boolean;
           entryCount: number;
-        }>('space/sync', { spaceId, spaceName }, 120_000);
+        }>('space/sync', { space_id: spaceId, space_name: spaceName }, 120_000);
 
         report(`同步完成 (${result.entryCount} 个条目)`, 100);
       } catch {
@@ -138,7 +139,7 @@ export class WebDavManager {
   }
 
   /**
-   * 移除一个知识库。
+   * 移除/停用一个知识库。
    */
   async removeSpace(spaceId: string): Promise<void> {
     if (!this.spaces.has(spaceId)) return;
@@ -161,7 +162,7 @@ export class WebDavManager {
     await this.removeSpace(spaceId);
   }
 
-  /** 停止所有活跃的知识库（扩展 deactivate 时调用） */
+  /** 停止所有已激活的知识库（扩展 deactivate 时调用） */
   async stopAll(): Promise<void> {
     this.spaces.clear();
     this.notifyChange();
@@ -170,9 +171,10 @@ export class WebDavManager {
   /**
    * 刷新指定知识库。
    */
-  async refreshWebdav(spaceId: string, spaceName: string, mcpUrl: string): Promise<void> {
+  async refresh(spaceId: string, spaceName: string, mcpUrl: string): Promise<void> {
     this.spaces.delete(spaceId);
-    const space: ActiveSpace = { spaceId, spaceName, mcpUrl };
+    const displayName = spaceName.trim() || spaceId;
+    const space: ActiveSpace = { spaceId, spaceName: displayName, mcpUrl };
     this.spaces.set(spaceId, space);
     this.notifyChange();
   }
@@ -196,13 +198,18 @@ export class WebDavManager {
         succeeded: number;
         failed: number;
         errors: Array<{ name: string; error: string }>;
+        succeeded_entry_ids?: string[];
       }>('entry/syncContent', {
-        spaceId,
+        space_id: spaceId,
         entries: entries.map(e => ({ entryId: e.entryId, name: e.name })),
         force: force ?? false,
       }, 120_000);
 
       if (result.succeeded > 0) {
+        const succeededEntryIds = Array.isArray(result.succeeded_entry_ids)
+          ? result.succeeded_entry_ids
+          : entries.map((entry) => entry.entryId);
+        markEntriesSynced(spaceId, succeededEntryIds);
         this.notifyChange();
       }
 

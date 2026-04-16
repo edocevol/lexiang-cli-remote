@@ -1,12 +1,11 @@
 /**
  * 知识库操作命令模块。
  *
- * 包含 selectSpace、searchKnowledge、refreshSpaces、copyMcpConfig、syncSpace、stopSpace、createFolder、openWebdavUrl 等命令。
+ * 包含 selectSpace、searchKnowledge、refreshSpaces、copyMcpConfig、syncSpace、stopSpace、createFolder 等命令。
  */
 
 import * as vscode from 'vscode';
 
-import { COMPANY_FROM_STATE_KEY, DEFAULT_COMPANY_FROM } from '../services/init-services.js';
 import { EntryTreeItem } from '../views/space-tree.js';
 import { createFolderCommand } from './create-folder.js';
 import { selectSpaceCommand } from './select-space.js';
@@ -25,42 +24,36 @@ import { withCommand } from './types.js';
  * - lefs.copyMcpConfig: 复制 MCP 配置片段到剪贴板
  * - lefs.createFolder: 在指定目录下创建子文件夹
  * - lefs.syncSpace: 同步指定知识库
- * - lefs.stopSpace: 停止指定知识库的 WebDAV 服务
- * - lefs.openWebdavUrl: 已废弃，显示提示信息
+ * - lefs.stopSpace: 停用指定知识库
  *
  * @param deps - 命令依赖注入对象
  * @returns Disposable 数组
  */
 export function registerSpaceCommands(deps: CommandDeps): vscode.Disposable[] {
-  const { context, log, authBridge, webdavManager, treeProvider } = deps;
+  const { context, log, authBridge, spaceRegistry, treeProvider } = deps;
 
   return [
     // 选择知识库
     vscode.commands.registerCommand('lefs.selectSpace', withCommand('selectSpace', log, async () => {
-      await selectSpaceCommand(authBridge, context.extensionUri, { log });
+      await selectSpaceCommand({ authBridge, extensionUri: context.extensionUri, log });
     })),
 
     // 搜索知识
     vscode.commands.registerCommand('lefs.searchKnowledge', withCommand('searchKnowledge', log, async () => {
-      await selectSpaceCommand(authBridge, context.extensionUri, {
-        initialSearchTarget: 'entry',
-        log,
-      });
+      await selectSpaceCommand({ authBridge, extensionUri: context.extensionUri, log, initialSearchTarget: 'entry' });
     })),
 
     // 刷新所有知识库
     vscode.commands.registerCommand('lefs.refreshSpaces', withCommand('refreshSpaces', log, async () => {
-      treeProvider.refreshAll();
-      const activeSpaces = webdavManager.getAll();
+      const activeSpaces = spaceRegistry.getAll();
       if (activeSpaces.length === 0) return;
       try {
-        const mcpUrl = await authBridge.ensureAuthenticatedWithProgress();
+        await authBridge.ensureAuthenticatedWithProgress();
         for (const space of activeSpaces) {
-          await webdavManager.addSpace(space.spaceId, space.spaceName, mcpUrl, {
-            onLayerComplete: () => treeProvider.refreshAll(),
+          await spaceRegistry.addSpace(space.spaceId, space.spaceName, '__rpc__', {
+            onLayerComplete: () => treeProvider.refresh(),
           });
         }
-        treeProvider.refresh();
       } catch (err) {
         void vscode.window.showErrorMessage(
           `刷新失败: ${err instanceof Error ? err.message : String(err)}`,
@@ -72,9 +65,9 @@ export function registerSpaceCommands(deps: CommandDeps): vscode.Disposable[] {
     // 复制 MCP 配置
     vscode.commands.registerCommand('lefs.copyMcpConfig', withCommand('copyMcpConfig', log, async () => {
       try {
-        const mcpUrl = await authBridge.ensureAuthenticatedWithProgress();
+        await authBridge.ensureAuthenticatedWithProgress();
         const configSnippet = JSON.stringify(
-          { mcpServers: { lefs: { transport: 'sse', url: mcpUrl } } },
+          { mcpServers: { lefs: { transport: 'sse', url: 'https://mcp-test.lexiang-app.com/mcp' } } },
           null,
           2,
         );
@@ -133,11 +126,10 @@ export function registerSpaceCommands(deps: CommandDeps): vscode.Disposable[] {
           void vscode.window.showWarningMessage('缺少 spaceId/spaceName，无法同步知识库');
           return;
         }
-        const finalMcpUrl = mcpUrl ?? await authBridge.ensureAuthenticatedWithProgress();
-        await syncSpaceCommand(webdavManager, spaceId, spaceName, finalMcpUrl, {
-          onLayerComplete: () => treeProvider.refreshAll(),
+        await authBridge.ensureAuthenticatedWithProgress();
+        await syncSpaceCommand(spaceRegistry, spaceId, spaceName, '__rpc__', {
+          onLayerComplete: () => treeProvider.refresh(),
         });
-        treeProvider.refresh();
       }),
     ),
 
@@ -145,14 +137,14 @@ export function registerSpaceCommands(deps: CommandDeps): vscode.Disposable[] {
     vscode.commands.registerCommand(
       'lefs.stopSpace',
       withCommand('stopSpace', log, async (item?: vscode.TreeItem & { spaceId?: string }) => {
-        await stopSpaceCommand(webdavManager, item?.spaceId);
+        await stopSpaceCommand(spaceRegistry, item?.spaceId);
         treeProvider.refresh();
       }),
     ),
 
-    // WebDAV URL（已废弃）
+    // 废弃命令兼容
     vscode.commands.registerCommand('lefs.openWebdavUrl', async () => {
-      void vscode.window.showInformationMessage('WebDAV 服务已移除，知识库通过内存文件系统提供。');
+      void vscode.window.showInformationMessage('此命令已废弃，知识库通过内存文件系统提供。');
     }),
   ];
 }
@@ -170,7 +162,7 @@ export function registerSpaceCommands(deps: CommandDeps): vscode.Disposable[] {
  * @returns Disposable 数组
  */
 export function registerBrowserCommands(deps: CommandDeps): vscode.Disposable[] {
-  const { context, log } = deps;
+  const { log, rpcClient } = deps;
 
   return [
     // 在浏览器中打开知识库
@@ -182,8 +174,8 @@ export function registerBrowserCommands(deps: CommandDeps): vscode.Disposable[] 
           void vscode.window.showWarningMessage('请右键点击知识库节点执行此操作');
           return;
         }
-        const companyFrom = context.globalState.get<string>(COMPANY_FROM_STATE_KEY) ?? DEFAULT_COMPANY_FROM;
-        const url = `https://lexiangla.com/spaces/${spaceId}?company_from=${companyFrom}`;
+        const companyFrom = await getCompanyFrom(rpcClient);
+        const url = `https://lexiangla.com/spaces/${spaceId}${companyFrom ? `?company_from=${companyFrom}` : ''}`;
         void vscode.env.openExternal(vscode.Uri.parse(url));
       }),
     ),
@@ -197,24 +189,35 @@ export function registerBrowserCommands(deps: CommandDeps): vscode.Disposable[] 
           void vscode.window.showWarningMessage('请右键点击文档节点执行此操作');
           return;
         }
-        const companyFrom = context.globalState.get<string>(COMPANY_FROM_STATE_KEY) ?? DEFAULT_COMPANY_FROM;
-        const url = `https://lexiangla.com/pages/${entryId}?company_from=${companyFrom}`;
+        const companyFrom = await getCompanyFrom(rpcClient);
+        const url = `https://lexiangla.com/pages/${entryId}${companyFrom ? `?company_from=${companyFrom}` : ''}`;
         void vscode.env.openExternal(vscode.Uri.parse(url));
       }),
     ),
   ];
 }
 
-// ── 刷新 WebDAV 命令 ──────────────────────────────────────────────────────
+/** 从 auth/status 获取 companyFrom（可选） */
+async function getCompanyFrom(rpcClient?: import('../rpc/lx-rpc-client.js').LxRpcClient): Promise<string | undefined> {
+  if (!rpcClient?.isRunning()) return undefined;
+  try {
+    const status = await rpcClient.sendRequest<{ companyFrom?: string }>('auth/status', {});
+    return status.companyFrom;
+  } catch {
+    return undefined;
+  }
+}
+
+// ── 刷新知识库命令 ──────────────────────────────────────────────────────
 
 /**
- * 注册"刷新 WebDAV"命令（lefs.refreshWebdav）。
+ * 注册"刷新知识库"命令（lefs.refreshSpace）。
  *
  * 工作流程：
  * 1. 从 TreeItem 提取 spaceId
  * 2. 获取 MCP 认证 URL
  * 3. 从 DB 读取知识库名称
- * 4. 在 withProgress 中执行 webdavManager.addSpace
+ * 4. 在 withProgress 中执行 spaceRegistry.addSpace
  *    - 阶段一：结构同步
  *    - 阶段二：后台内容同步
  * 5. 刷新 TreeView
@@ -223,12 +226,12 @@ export function registerBrowserCommands(deps: CommandDeps): vscode.Disposable[] 
  * @param deps - 命令依赖注入对象
  * @returns Disposable
  */
-export function registerRefreshWebdavCommand(deps: CommandDeps): vscode.Disposable {
-  const { log, authBridge, webdavManager, treeProvider } = deps;
+export function registerRefreshCommand(deps: CommandDeps): vscode.Disposable {
+  const { log, authBridge, spaceRegistry, treeProvider } = deps;
 
   return vscode.commands.registerCommand(
-    'lefs.refreshWebdav',
-    withCommand('refreshWebdav', log, async (item?: vscode.TreeItem & { spaceId?: string }) => {
+    'lefs.refreshSpace',
+    withCommand('refreshSpace', log, async (item?: vscode.TreeItem & { spaceId?: string }) => {
       const spaceId = item?.spaceId;
       if (!spaceId) {
         void vscode.window.showWarningMessage('请右键点击某个知识库执行此操作');
@@ -236,7 +239,7 @@ export function registerRefreshWebdavCommand(deps: CommandDeps): vscode.Disposab
       }
 
       try {
-        const mcpUrl = await authBridge.ensureAuthenticatedWithProgress();
+        await authBridge.ensureAuthenticatedWithProgress();
         const store = await deps.storeFactory?.getStore(spaceId);
         const spaceName = await store?.getConfig('space_name') ?? spaceId;
 
@@ -247,15 +250,14 @@ export function registerRefreshWebdavCommand(deps: CommandDeps): vscode.Disposab
             cancellable: false,
           },
           async (progress) => {
-            await webdavManager.addSpace(spaceId, spaceName, mcpUrl, {
+            await spaceRegistry.addSpace(spaceId, spaceName, '__rpc__', {
               onProgress: (msg, increment) => {
                 progress.report({ message: msg, increment });
               },
-              onLayerComplete: () => treeProvider.refreshAll(),
+              onLayerComplete: () => treeProvider.refresh(),
             });
           },
         );
-        treeProvider.refreshAll();
         void vscode.window.showInformationMessage(`"${spaceName}" 已同步，后台内容同步中...`);
       } catch (err) {
         void vscode.window.showErrorMessage(

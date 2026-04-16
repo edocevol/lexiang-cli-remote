@@ -9,7 +9,7 @@ async fn handle_search_kb(ctx: &ServeContext, params: Value) -> JsonRpcResult {
     let result = ctx
         .mcp_call(
             "search_kb_search",
-            serde_json::json!({ "keyword": keyword, "type": "`kb_doc`" }),
+            serde_json::json!({ "keyword": keyword, "type": "kb_doc" }),
         )
         .await?;
     Ok(serde_json::json!({ "results": result }))
@@ -21,7 +21,7 @@ async fn handle_search(ctx: &ServeContext, params: Value) -> JsonRpcResult {
     let search_type = params
         .get("type")
         .and_then(|v| v.as_str())
-        .unwrap_or("`kb_doc`");
+        .unwrap_or("kb_doc");
     let limit = params.get("limit").and_then(Value::as_u64).unwrap_or(30);
 
     ctx.mcp_call(

@@ -18,7 +18,7 @@ import { withCommand } from './types.js';
  * 5. 刷新 TreeView
  */
 export function registerCleanInvalidSpaces(deps: CommandDeps): vscode.Disposable {
-  const { log, webdavManager, treeProvider, rpcClient } = deps;
+  const { log, spaceRegistry, treeProvider, rpcClient } = deps;
 
   return vscode.commands.registerCommand('lefs.cleanInvalidSpaces', withCommand('cleanInvalidSpaces', log, async () => {
     if (!rpcClient?.isRunning()) {
@@ -56,8 +56,8 @@ export function registerCleanInvalidSpaces(deps: CommandDeps): vscode.Disposable
       if (confirm !== '确认清理') return;
 
       for (const { spaceId } of invalidList) {
-        await webdavManager.stop(spaceId).catch((err) => {
-          log(`停止知识库 ${spaceId} WebDAV 服务失败: ${err instanceof Error ? err.message : String(err)}`);
+        await spaceRegistry.stop(spaceId).catch((err) => {
+          log(`停用知识库 ${spaceId} 失败: ${err instanceof Error ? err.message : String(err)}`);
         });
       }
 

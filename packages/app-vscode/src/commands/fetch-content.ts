@@ -21,7 +21,7 @@ import { withCommand } from './types.js';
  * 2. 检查配额是否充足 — 配额耗尽则提示并退出
  * 3. 获取 MCP 认证 URL（ensureAuthenticatedWithProgress）
  * 4. 查询本地 DB 是否已有内容（用于决定是否消耗配额）
- * 5. 调用 webdavManager.syncEntries 拉取单个文档内容
+ * 5. 调用 spaceRegistry.syncEntries 拉取单个文档内容
  * 6. 若为新内容，消耗配额（contentQuota.consume）
  * 7. 刷新 TreeView 节点图标
  * 8. 触发 lxdoc:// 虚拟文档刷新（notifyChange）
@@ -30,7 +30,7 @@ import { withCommand } from './types.js';
  * @returns Disposable
  */
 export function registerFetchEntryContent(deps: CommandDeps): vscode.Disposable {
-  const { log, authBridge, webdavManager, contentQuota, treeProvider } = deps;
+  const { log, authBridge, spaceRegistry, contentQuota, treeProvider } = deps;
 
   return vscode.commands.registerCommand(
     'lefs.fetchEntryContent',
@@ -52,7 +52,7 @@ export function registerFetchEntryContent(deps: CommandDeps): vscode.Disposable 
         return;
       }
 
-      const mcpUrl = await authBridge.ensureAuthenticatedWithProgress();
+      await authBridge.ensureAuthenticatedWithProgress();
       const store = deps.storeFactory ? await deps.storeFactory.getStore(spaceId) : undefined;
       const alreadyHasContent = Boolean(store && (await store.getContent(entryId)));
 
@@ -63,7 +63,7 @@ export function registerFetchEntryContent(deps: CommandDeps): vscode.Disposable 
           cancellable: false,
         },
         async () => {
-          const result = await webdavManager.syncEntries(spaceId, [{ entryId, name }], mcpUrl, undefined, true);
+          const result = await spaceRegistry.syncEntries(spaceId, [{ entryId, name }], '__rpc__', undefined, true);
           if (result.failed > 0) {
             const errDetail = result.errors[0]?.error ?? '未知错误';
             void vscode.window.showErrorMessage(`获取「${name}」内容失败: ${errDetail}`);
@@ -76,7 +76,7 @@ export function registerFetchEntryContent(deps: CommandDeps): vscode.Disposable 
             } else {
               treeProvider.refreshAll();
             }
-            webdavManager.notifyChange();
+            spaceRegistry.notifyChange();
             void vscode.window.showInformationMessage(`「${name}」内容已获取。${contentQuota.describe()}`);
           }
         },
@@ -99,7 +99,7 @@ export function registerFetchEntryContent(deps: CommandDeps): vscode.Disposable 
  * 5. 弹出确认对话框，显示本次将获取的数量
  * 6. 获取 MCP 认证 URL
  * 7. 统计本地已有内容的文档数（用于精准计算配额消耗）
- * 8. 调用 webdavManager.syncEntries 批量拉取（带进度回调）
+ * 8. 调用 spaceRegistry.syncEntries 批量拉取（带进度回调）
  * 9. 计算实际新增内容数，消耗对应配额
  * 10. 刷新 TreeView，若有失败项则显示详细错误列表
  *
@@ -107,7 +107,7 @@ export function registerFetchEntryContent(deps: CommandDeps): vscode.Disposable 
  * @returns Disposable
  */
 export function registerFetchFolderContents(deps: CommandDeps): vscode.Disposable {
-  const { log, authBridge, webdavManager, contentQuota, treeProvider } = deps;
+  const { log, authBridge, spaceRegistry, contentQuota, treeProvider } = deps;
 
   return vscode.commands.registerCommand(
     'lefs.fetchFolderContents',
@@ -187,7 +187,7 @@ export function registerFetchFolderContents(deps: CommandDeps): vscode.Disposabl
         );
         if (confirm !== '确认获取') return;
 
-        const mcpUrl = await authBridge.ensureAuthenticatedWithProgress();
+        await authBridge.ensureAuthenticatedWithProgress();
 
         const originalWithoutContent = store
           ? await (async () => {
@@ -210,10 +210,10 @@ export function registerFetchFolderContents(deps: CommandDeps): vscode.Disposabl
             cancellable: false,
           },
           async (progress) => {
-            result = await webdavManager.syncEntries(
+            result = await spaceRegistry.syncEntries(
               spaceId,
               toFetch,
-              mcpUrl,
+              '__rpc__',
               (s, f, total) => {
                 succeeded = s;
                 failed = f;

@@ -3,6 +3,7 @@ use anyhow::Result;
 use serde::de::DeserializeOwned;
 use std::sync::{Arc, Mutex};
 
+#[derive(Clone)]
 pub struct McpClient {
     transport: HttpTransport,
     schema_manager: Arc<Mutex<SchemaManager>>,
@@ -14,6 +15,11 @@ impl McpClient {
             transport: HttpTransport::new(url, access_token)?,
             schema_manager: Arc::new(Mutex::new(SchemaManager::new())),
         })
+    }
+
+    /// 返回当前使用的 `access_token（用于缓存判断`）
+    pub fn access_token(&self) -> Option<&str> {
+        self.transport.access_token()
     }
 
     pub async fn list_tools(&self) -> Result<Vec<ToolSchema>> {
@@ -48,6 +54,7 @@ impl McpClient {
             "arguments": args,
         });
 
+        // 解析为 ToolCallResult（日志已在 transport 层统一记录）
         let result: ToolCallResult = self.transport.call("tools/call", params).await?;
 
         // Extract text content
@@ -63,6 +70,7 @@ impl McpClient {
             }
         }
 
+        // 如果没有 text block，返回空对象
         Ok(serde_json::json!({}))
     }
 
