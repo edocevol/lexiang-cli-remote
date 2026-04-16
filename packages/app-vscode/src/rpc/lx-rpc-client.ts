@@ -9,7 +9,193 @@
  */
 
 import { ChildProcess, spawn } from 'child_process';
+import * as fs from 'fs';
+import * as https from 'https';
+import * as os from 'os';
+import * as path from 'path';
 import * as vscode from 'vscode';
+import { createWriteStream } from 'fs';
+
+// ── 自定义错误 ──────────────────────────────────────────────────────────
+
+/** lx 二进制不存在或版本不支持 */
+export class LxBinaryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'LxBinaryError';
+  }
+}
+
+// ── lx 二进制自动下载 ──────────────────────────────────────────────────────
+
+const LX_GITHUB_OWNER = 'nicholasniu';
+const LX_GITHUB_REPO = 'lexiang-cli';
+const LX_DOWNLOAD_TIMEOUT_MS = 120_000;
+
+/** 返回当前平台对应的 GitHub Release asset 名称关键词 */
+function getPlatformAssetKeyword(): string {
+  const platform = os.platform(); // darwin | linux | win32
+  const arch = os.arch(); // x64 | arm64
+  if (platform === 'darwin') return `darwin-${arch}`;
+  if (platform === 'linux') return `linux-${arch}`;
+  if (platform === 'win32') return `windows-${arch}`;
+  return `${platform}-${arch}`;
+}
+
+/** 从 GitHub Release 查找并下载 lx 二进制到 globalStorage，返回本地路径 */
+async function downloadLxBinary(
+  globalStorageUri: vscode.Uri,
+  log: (msg: string) => void,
+): Promise<string> {
+  const keyword = getPlatformAssetKeyword();
+  const ext = os.platform() === 'win32' ? '.exe' : '';
+  const binName = `lx${ext}`;
+
+  log(`lx-download: 正在从 GitHub Release 查找 ${keyword} 二进制...`);
+
+  // 1. 获取最新 release
+  const releasesUrl = `https://api.github.com/repos/${LX_GITHUB_OWNER}/${LX_GITHUB_REPO}/releases?per_page=10`;
+  const resp = await fetch(releasesUrl, {
+    headers: { Accept: 'application/vnd.github.v3+json' },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!resp.ok) throw new Error(`GitHub API 请求失败: HTTP ${resp.status}`);
+  const releases = await resp.json() as Array<{
+    tag_name: string;
+    draft: boolean;
+    prerelease: boolean;
+    assets: Array<{ name: string; browser_download_url: string; size: number }>;
+  }>;
+
+  // 找第一个非 draft 非 prerelease 的 release，且包含当前平台 asset
+  const release = releases.find(r =>
+    !r.draft &&
+    !r.prerelease &&
+    r.assets.some(a => a.name.includes(keyword) && (a.name.endsWith('.tar.gz') || a.name.endsWith('.zip')))
+  );
+  if (!release) throw new Error(`未找到适用于 ${keyword} 的 lx 二进制`);
+
+  const asset = release.assets.find(a => a.name.includes(keyword) && (a.name.endsWith('.tar.gz') || a.name.endsWith('.zip')));
+  if (!asset) throw new Error(`未找到适用于 ${keyword} 的 lx 二进制`);
+
+  log(`lx-download: 找到 ${release.tag_name} - ${asset.name}`);
+
+  // 2. 下载到 globalStorage
+  const storageDir = globalStorageUri.fsPath;
+  fs.mkdirSync(storageDir, { recursive: true });
+
+  const versionDir = path.join(storageDir, 'lx', release.tag_name);
+  const binPath = path.join(versionDir, binName);
+
+  // 已下载过则直接返回
+  if (fs.existsSync(binPath)) {
+    log(`lx-download: 复用已下载的二进制: ${binPath}`);
+    return binPath;
+  }
+
+  fs.mkdirSync(versionDir, { recursive: true });
+
+  // 3. 下载压缩包
+  const archivePath = path.join(versionDir, asset.name);
+  await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: '正在下载 lx CLI...', cancellable: false },
+    async (progress) => {
+      progress.report({ message: `${asset.name}` });
+      await downloadFile(asset.browser_download_url, archivePath);
+    },
+  );
+
+  // 4. 解压
+  const { execFile } = await import('node:child_process');
+  if (asset.name.endsWith('.tar.gz')) {
+    await new Promise<void>((resolve, reject) => {
+      execFile('tar', ['xzf', archivePath, '-C', versionDir], { timeout: 30_000 }, err =>
+        err ? reject(new Error(`解压失败: ${err.message}`)) : resolve(),
+      );
+    });
+  } else {
+    // .zip
+    await new Promise<void>((resolve, reject) => {
+      execFile('unzip', ['-o', archivePath, '-d', versionDir], { timeout: 30_000 }, err =>
+        err ? reject(new Error(`解压失败: ${err.message}`)) : resolve(),
+      );
+    });
+  }
+
+  // 解压后二进制可能在子目录中，搜索一下
+  let extractedBin = path.join(versionDir, binName);
+  if (!fs.existsSync(extractedBin)) {
+    const found = findFile(versionDir, binName);
+    if (found) {
+      // 移到 versionDir 根目录
+      fs.renameSync(found, extractedBin);
+    }
+  }
+
+  if (!fs.existsSync(extractedBin)) {
+    throw new Error(`解压后未找到 ${binName}`);
+  }
+
+  // 设置可执行权限
+  if (os.platform() !== 'win32') {
+    fs.chmodSync(extractedBin, 0o755);
+  }
+
+  // 清理压缩包
+  try { fs.unlinkSync(archivePath); } catch { /* ignore */ }
+
+  log(`lx-download: 下载完成: ${extractedBin}`);
+  return extractedBin;
+}
+
+/** 递归查找文件 */
+function findFile(dir: string, name: string): string | null {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isFile() && entry.name === name) return full;
+    if (entry.isDirectory()) {
+      const found = findFile(full, name);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/** 下载文件到本地 */
+function downloadFile(url: string, dest: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const file = createWriteStream(dest);
+    const request = https.get(url, { timeout: LX_DOWNLOAD_TIMEOUT_MS }, (response) => {
+      // 处理重定向
+      if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        file.close();
+        fs.unlinkSync(dest);
+        downloadFile(response.headers.location, dest).then(resolve, reject);
+        return;
+      }
+      if (response.statusCode !== 200) {
+        file.close();
+        try { fs.unlinkSync(dest); } catch { /* ignore */ }
+        reject(new Error(`下载失败: HTTP ${response.statusCode}`));
+        return;
+      }
+      response.pipe(file);
+      file.on('finish', () => {
+        file.close();
+        resolve();
+      });
+    });
+    request.on('error', (err) => {
+      file.close();
+      try { fs.unlinkSync(dest); } catch { /* ignore */ }
+      reject(err);
+    });
+    request.on('timeout', () => {
+      request.destroy();
+      reject(new Error('下载超时'));
+    });
+  });
+}
 
 // ── JSON-RPC 2.0 类型 ──────────────────────────────────────────────────────
 
@@ -58,11 +244,16 @@ export class LxRpcClient implements vscode.Disposable {
   private buffer = '';
   private state: ClientState = 'stopped';
   private restartTimer: ReturnType<typeof setTimeout> | undefined;
+  private restartCount = 0;
+  private static readonly MAX_RESTART_ATTEMPTS = 3;
   private notificationHandlers = new Set<NotificationHandler>();
   private readonly _onDidChangeState = new vscode.EventEmitter<ClientState>();
   readonly onDidChangeState = this._onDidChangeState.event;
 
-  constructor(private readonly log: (msg: string) => void) {}
+  constructor(
+    private readonly log: (msg: string) => void,
+    private readonly globalStorageUri: vscode.Uri,
+  ) {}
 
   // ── 生命周期 ──────────────────────────────────────────────────────────
 
@@ -73,8 +264,58 @@ export class LxRpcClient implements vscode.Disposable {
     this.setState('starting');
     this.log('lx-rpc: 正在启动 lx serve...');
 
-    const lxPath = this.getLxBinaryPath();
+    const lxPath = await this.getLxBinaryPath();
+
+    // ── 前置检查：lx 是否存在且支持 serve ──────────────────────────────
+    try {
+      const { execFile } = await import('node:child_process');
+      const helpResult = await new Promise<string>((resolve, reject) => {
+        execFile(lxPath, ['serve', '--help'], { timeout: 5000 }, (err, stdout, stderr) => {
+          if (err) reject(err);
+          else resolve((stdout ?? '') + (stderr ?? ''));
+        });
+      });
+      if (!helpResult.includes('JSON-RPC') && !helpResult.includes('stdio') && !helpResult.includes('serve')) {
+        throw new LxBinaryError(
+          `lx serve 命令不可用（当前 lx 版本不支持 serve 子命令）。` +
+          `请升级 lx: cargo install --path /path/to/lexiang-cli/crates/lx`,
+        );
+      }
+    } catch (err) {
+      if (err instanceof LxBinaryError) {
+        this.log(`lx-rpc: ${err.message}`);
+        this.setState('stopped');
+        void vscode.window.showErrorMessage(
+          `乐享扩展需要新版本 lx CLI。请运行: cargo install --path lexiang-cli/crates/lx`,
+          '查看日志',
+        ).then(action => {
+          if (action === '查看日志') {
+            vscode.commands.executeCommand('lefs.showLog');
+          }
+        });
+        throw err;
+      }
+      // ENOENT: lx 不在 PATH
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        this.log(`lx-rpc: 找不到 lx 命令 (${lxPath})`);
+        this.setState('stopped');
+        void vscode.window.showErrorMessage(
+          `找不到 lx 命令。请安装 lx CLI 或在设置中配置 lefs.lxPath。`,
+          '查看日志',
+        ).then(action => {
+          if (action === '查看日志') {
+            vscode.commands.executeCommand('lefs.showLog');
+          }
+        });
+        throw new LxBinaryError(`lx 命令不存在: ${lxPath}`);
+      }
+      // 其他错误（超时等）不阻塞，继续尝试启动
+      this.log(`lx-rpc: serve 能力检查跳过 (${err instanceof Error ? err.message : String(err)})`);
+    }
+
+    // ── 启动子进程 ───────────────────────────────────────────────────────
     const verbose = vscode.workspace.getConfiguration('lefs').get<boolean>('verboseLxServe', false);
+    let stderrBuffer = '';
 
     this.proc = spawn(lxPath, ['serve', ...(verbose ? ['--verbose'] : [])], {
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -83,8 +324,13 @@ export class LxRpcClient implements vscode.Disposable {
 
     this.proc.stdout!.on('data', (chunk: Buffer) => this.onStdout(chunk));
     this.proc.stderr!.on('data', (chunk: Buffer) => {
-      const msg = chunk.toString().trim();
-      if (msg) this.log(`lx-stderr: ${msg}`);
+      const msg = chunk.toString();
+      stderrBuffer += msg;
+      // 按行处理 stderr 日志，去掉空行
+      const lines = msg.split('\n').filter(line => line.trim());
+      for (const line of lines) {
+        this.log(`[lx] ${line}`);
+      }
     });
 
     this.proc.on('error', (err) => {
@@ -94,17 +340,25 @@ export class LxRpcClient implements vscode.Disposable {
 
     this.proc.on('exit', (code, signal) => {
       this.log(`lx-rpc: 进程退出 (code=${code}, signal=${signal})`);
+      // 进程立即退出（code=1 通常是命令不存在或启动错误）
+      if (code === 1 && this.state === 'starting' && stderrBuffer) {
+        this.log(`lx-rpc: 启动失败，stderr: ${stderrBuffer.trim()}`);
+        void vscode.window.showErrorMessage(
+          `lx serve 启动失败: ${stderrBuffer.trim().split('\n').pop()}`,
+        );
+      }
       if (this.state !== 'stopped') {
         this.handleCrash();
       }
     });
 
-    // 发送 initialize 握手
+    // 发送 initialize 握手（使用 sendRawRequest 绕过 ready 状态检查）
     try {
-      const result = await this.sendRequest('initialize', {
+      const result = await this.sendRawRequest('initialize', {
         clientInfo: { name: 'app-vscode', version: '0.1.0' },
       }) as { server: string; version: string; capabilities: Record<string, unknown> };
       this.log(`lx-rpc: 已连接 (server=${result.server}, version=${result.version})`);
+      this.restartCount = 0; // 重连成功，重置计数
       this.setState('ready');
     } catch (err) {
       this.log(`lx-rpc: 初始化失败: ${err instanceof Error ? err.message : String(err)}`);
@@ -145,12 +399,17 @@ export class LxRpcClient implements vscode.Disposable {
 
   // ── 请求 ──────────────────────────────────────────────────────────────
 
-  /** 发送 JSON-RPC 请求并等待响应 */
+  /** 发送 JSON-RPC 请求并等待响应（要求 ready 状态） */
   async sendRequest<T = unknown>(method: string, params?: unknown, timeoutMs = 30_000): Promise<T> {
     if (this.state !== 'ready') {
       throw new Error(`lx-rpc: 客户端未就绪 (state=${this.state})`);
     }
 
+    return this.sendRawRequest<T>(method, params, timeoutMs);
+  }
+
+  /** 发送 JSON-RPC 请求并等待响应（不检查状态，用于 initialize 握手） */
+  private sendRawRequest<T = unknown>(method: string, params?: unknown, timeoutMs = 30_000): Promise<T> {
     const id = this.nextId++;
     const request: JsonRpcRequest = { jsonrpc: '2.0', id, method, params };
 
@@ -214,11 +473,74 @@ export class LxRpcClient implements vscode.Disposable {
     this._onDidChangeState.fire(state);
   }
 
-  private getLxBinaryPath(): string {
-    // 优先使用配置的路径，否则使用 PATH 中的 lx
+  private async getLxBinaryPath(): Promise<string> {
+    // 1. 用户显式配置的路径（最高优先级）
     const configPath = vscode.workspace.getConfiguration('lefs').get<string>('lxPath');
     if (configPath) return configPath;
-    return 'lx';
+
+    // 2. 扩展自带的平台特定 lx 二进制 (bin/darwin-arm64/lx, bin/linux-x64/lx, etc.)
+    const platformName = this.getPlatformBinaryName();
+    const extBinPath = path.join(
+      vscode.extensions.getExtension('lexiang.lefs-vscode')!.extensionPath,
+      'bin',
+      platformName,
+    );
+    try {
+      fs.accessSync(extBinPath, fs.constants.X_OK);
+      return extBinPath;
+    } catch {
+      // 自带二进制不存在，继续 fallback
+    }
+
+    // 3. globalStorage 中已下载的 lx（按版本缓存）
+    const storageDir = this.globalStorageUri.fsPath;
+    const lxDir = path.join(storageDir, 'lx');
+    if (fs.existsSync(lxDir)) {
+      const ext = os.platform() === 'win32' ? '.exe' : '';
+      const versions = fs.readdirSync(lxDir)
+        .filter(d => fs.statSync(path.join(lxDir, d)).isDirectory())
+        .sort()
+        .reverse();
+      for (const v of versions) {
+        const binPath = path.join(lxDir, v, `lx${ext}`);
+        if (fs.existsSync(binPath)) {
+          this.log(`lx-rpc: 使用已下载的 lx ${v}: ${binPath}`);
+          return binPath;
+        }
+      }
+    }
+
+    // 4. PATH 中的 lx
+    try {
+      const { execFile } = await import('node:child_process');
+      const cmd = os.platform() === 'win32' ? 'where' : 'which';
+      await new Promise<string>((resolve, reject) => {
+        execFile(cmd, ['lx'], { timeout: 3000 }, (err, stdout) =>
+          err ? reject(err) : resolve(stdout.trim()),
+        );
+      });
+      return 'lx';
+    } catch {
+      // PATH 中没有 lx
+    }
+
+    // 5. 从 GitHub Release 自动下载
+    try {
+      this.log('lx-rpc: 本地未找到 lx，尝试从 GitHub Release 下载...');
+      const binPath = await downloadLxBinary(this.globalStorageUri, this.log);
+      return binPath;
+    } catch (err) {
+      this.log(`lx-rpc: 自动下载失败: ${err instanceof Error ? err.message : String(err)}`);
+      return 'lx';
+    }
+  }
+
+  /** 根据当前平台返回 lx 二进制相对路径，如 `darwin-arm64/lx`、`win32-x64/lx.exe` */
+  private getPlatformBinaryName(): string {
+    const platform = process.platform;
+    const arch = process.arch;
+    const ext = platform === 'win32' ? '.exe' : '';
+    return `${platform}-${arch}/lx${ext}`;
   }
 
   private write(msg: JsonRpcRequest | JsonRpcNotification): void {
@@ -294,9 +616,19 @@ export class LxRpcClient implements vscode.Disposable {
     this.proc?.kill();
     this.proc = undefined;
 
+    this.restartCount++;
+    if (this.restartCount > LxRpcClient.MAX_RESTART_ATTEMPTS) {
+      this.log(`lx-rpc: 已达最大重连次数 (${LxRpcClient.MAX_RESTART_ATTEMPTS})，停止重试`);
+      this.setState('stopped');
+      void vscode.window.showErrorMessage(
+        `lx serve 多次启动失败，已停止重试。请检查 lx 版本或查看日志。`,
+      );
+      return;
+    }
+
     // 自动重连（指数退避，最大 30s）
-    const delay = Math.min(5000, 1000 * Math.pow(2, 0)); // 简化：固定 5s
-    this.log(`lx-rpc: ${delay}ms 后尝试重连...`);
+    const delay = Math.min(30_000, 1000 * Math.pow(2, this.restartCount - 1));
+    this.log(`lx-rpc: ${delay}ms 后尝试重连 (${this.restartCount}/${LxRpcClient.MAX_RESTART_ATTEMPTS})...`);
     this.setState('restarting');
 
     this.restartTimer = setTimeout(() => {

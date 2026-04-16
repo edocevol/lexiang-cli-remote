@@ -6,7 +6,8 @@ import {
   parseMcpSpace,
   type SpaceMeta,
 } from '../rpc/lx-types.js';
-import type { WebDavManager } from '../services/webdav-manager.js';
+import { isEntrySynced } from '../services/content-status.js';
+import type { SpaceRegistry } from '../services/space-registry.js';
 import { EntryTreeItem, SpaceTreeItem } from './space-tree.js';
 import type { TreeDataSource } from './tree-data-source.js';
 
@@ -60,7 +61,11 @@ function mapEntriesToTreeNodes(
 ): EntryTreeItem[] {
   const result: EntryTreeItem[] = [];
   for (const entry of entries) {
-    const { kind, isFolder, syncStatus } = classifyMcpEntry(entry);
+    const effectiveEntry = {
+      ...entry,
+      syncStatus: entry.syncStatus ?? (isEntrySynced(spaceId, entry.id) ? 'synced' : undefined),
+    };
+    const { kind, isFolder, syncStatus } = classifyMcpEntry(effectiveEntry);
     if (kind === 'skip') continue;
 
     const hasChildren = entry.hasChildren ?? false;
@@ -84,11 +89,15 @@ function mapEntriesToTreeNodes(
 /**
  * RPC 数据源：通过 lx serve RPC 读取树形数据。
  * 对齐 Rust VFS 的 LexiangFs/PathResolver 路径模型。
+ *
+ * 知识库展示规则：
+ * 1. 用户主动选择并激活的知识库（spaceRegistry 中已激活的）
+ * 2. 个人知识库（从 contact_whoami 获取，始终展示）
  */
 export class DbTreeDataSource implements TreeDataSource {
   constructor(private readonly rpcClient?: LxRpcClient) {}
 
-  async getSpaceNodes(webdavManager?: WebDavManager): Promise<SpaceTreeItem[]> {
+  async getSpaceNodes(spaceRegistry?: SpaceRegistry): Promise<SpaceTreeItem[]> {
     const metaCache = SpaceMetaCache.getInstance();
 
     if (!this.rpcClient?.isRunning()) {
@@ -96,28 +105,43 @@ export class DbTreeDataSource implements TreeDataSource {
     }
 
     try {
-      const result = await this.rpcClient.sendRequest('space/listRecent', {});
-      const spaces = (result as Record<string, unknown>).spaces as Array<Record<string, unknown>> ?? [];
+      const items: SpaceTreeItem[] = [];
+      const seenSpaceIds = new Set<string>();
 
-      const items = await Promise.all(spaces.map(async (s) => {
-        const space = parseMcpSpace(s);
-        const spaceId = space.id;
-        const spaceName = space.name || spaceId;
-        const mounted = webdavManager?.get(spaceId);
-        const isMounted = Boolean(mounted);
-        const statusText = mounted ? `已激活: ${spaceName}` : '未激活';
+      // 1. 已激活的知识库（用户主动选择的）
+      for (const active of spaceRegistry?.getAll() ?? []) {
+        const displayName = active.spaceName?.trim() || active.spaceId;
+        seenSpaceIds.add(active.spaceId);
+        metaCache.set(active.spaceId, { spaceId: active.spaceId, spaceName: displayName });
+        items.push(new SpaceTreeItem(
+          active.spaceId,
+          displayName,
+          true,
+          `已激活: ${displayName}`,
+          true,
+        ));
+      }
 
-        // Cache meta
-        metaCache.set(spaceId, { spaceId, spaceName, rootEntryId: space.rootEntryId });
-
-        return new SpaceTreeItem(
-          spaceId,
-          spaceName,
-          isMounted,
-          statusText,
-          Boolean(space.rootEntryId),
-        );
-      }));
+      // 2. 个人知识库（从 whoami 获取，未激活时也展示）
+      try {
+        const whoamiResult = await this.rpcClient.sendRequest('contact/whoami', {});
+        const whoami = whoamiResult as Record<string, unknown>;
+        const personalSpaceId = whoami.personal_space_id as string | undefined;
+        if (personalSpaceId && !seenSpaceIds.has(personalSpaceId)) {
+          seenSpaceIds.add(personalSpaceId);
+          const personalName = (whoami.personal_space_name as string) || '个人知识库';
+          metaCache.set(personalSpaceId, { spaceId: personalSpaceId, spaceName: personalName });
+          items.push(new SpaceTreeItem(
+            personalSpaceId,
+            personalName,
+            false,
+            '未激活',
+            true,
+          ));
+        }
+      } catch {
+        // whoami 失败则跳过个人知识库
+      }
 
       return items;
     } catch {
@@ -147,9 +171,9 @@ export class DbTreeDataSource implements TreeDataSource {
 
       const result = await this.rpcClient.sendRequest('entry/listChildren', {
         space_id: spaceId,
-        parent_entry_id: rootEntryId,
+        parent_id: rootEntryId,
       });
-      const rawEntries = (result as Record<string, unknown>).entries as Array<Record<string, unknown>> ?? [];
+      const rawEntries = (result as Record<string, unknown>).children as Array<Record<string, unknown>> ?? [];
       const entries = rawEntries.map(parseMcpEntry);
       return mapEntriesToTreeNodes(spaceId, entries);
     } catch {
@@ -163,9 +187,9 @@ export class DbTreeDataSource implements TreeDataSource {
     try {
       const result = await this.rpcClient.sendRequest('entry/listChildren', {
         space_id: spaceId,
-        parent_entry_id: parentEntryId,
+        parent_id: parentEntryId,
       });
-      const rawEntries = (result as Record<string, unknown>).entries as Array<Record<string, unknown>> ?? [];
+      const rawEntries = (result as Record<string, unknown>).children as Array<Record<string, unknown>> ?? [];
       const entries = rawEntries.map(parseMcpEntry);
 
       // Add [本页] node if parent is not a real folder

@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import type { LxRpcClient } from '../rpc/lx-rpc-client.js';
 import { AuthBridge } from '../auth/auth-bridge.js';
 import { SpaceTreeProvider } from '../views/space-tree.js';
-import { WebDavManager } from './webdav-manager.js';
+import { SpaceRegistry } from './space-registry.js';
 
 /** 简单遥测（替代 @tencent/lefs-core telemetryBus） */
 const telemetry = {
@@ -25,7 +25,7 @@ export class BackgroundSyncService implements vscode.Disposable {
   private isProcessingQueue = false;
 
   constructor(
-    private readonly webdavManager: WebDavManager,
+    private readonly spaceRegistry: SpaceRegistry,
     private readonly authBridge: AuthBridge,
     private readonly treeProvider: SpaceTreeProvider,
     private readonly rpcClient?: LxRpcClient,
@@ -52,7 +52,7 @@ export class BackgroundSyncService implements vscode.Disposable {
     this.isRunning = true;
 
     try {
-      const spaces = this.webdavManager.getAll();
+      const spaces = this.spaceRegistry.getAll();
       if (spaces.length === 0) return;
 
       // 通过 space/changes 批量检查
@@ -92,13 +92,13 @@ export class BackgroundSyncService implements vscode.Disposable {
       const spaceId = this.syncQueue.shift();
       if (!spaceId) break;
 
-      const space = this.webdavManager.get(spaceId);
+      const space = this.spaceRegistry.get(spaceId);
       if (!space) continue;
 
       const spaceName = space.spaceName ?? spaceId;
 
       try {
-        this.webdavManager.reportProgress(`增量同步「${spaceName}」...`);
+        this.spaceRegistry.reportProgress(`增量同步「${spaceName}」...`);
 
         if (this.rpcClient?.isReady()) {
           try {
@@ -108,12 +108,11 @@ export class BackgroundSyncService implements vscode.Disposable {
           }
         }
 
-        this.webdavManager.reportProgress(undefined);
-        this.treeProvider.refresh();
-        this.webdavManager.notifyChange();
+        this.spaceRegistry.reportProgress(undefined);
+        this.spaceRegistry.notifyChange();
       } catch (e) {
         telemetry.emit('backgroundSync', 'sync_failed', { spaceId, error: String(e) }, 'error');
-        this.webdavManager.reportProgress(undefined);
+        this.spaceRegistry.reportProgress(undefined);
       }
     }
 

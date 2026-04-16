@@ -4,25 +4,14 @@
 
 import * as vscode from 'vscode';
 
-import { COMPANY_FROM_STATE_KEY } from '../services/init-services.js';
 import type { CommandDeps } from './types.js';
 import { withCommand } from './types.js';
 
 /**
  * 注册"清理所有缓存"命令（lefs.cleanAllCaches）。
- *
- * 工作流程：
- * 1. 弹出确认对话框（modal），提示将删除所有本地数据
- * 2. 停止所有活跃的 WebDAV 服务（webdavManager.stopAll）
- * 3. 通过 RPC 清理所有缓存
- * 4. 清空 spaceManager 状态
- * 5. 清除所有 globalState 键值（company_from、更新检查状态等）
- * 6. 重置配额计数器
- * 7. 刷新 TreeView
- * 8. 显示完成提示
  */
 export function registerCleanAllCaches(deps: CommandDeps): vscode.Disposable {
-  const { context, log, authBridge, webdavManager, spaceManager, contentQuota, treeProvider, rpcClient } = deps;
+  const { context, log, spaceRegistry, spaceManager, contentQuota, treeProvider, rpcClient } = deps;
 
   return vscode.commands.registerCommand('lefs.cleanAllCaches', withCommand('cleanAllCaches', log, async () => {
     const confirm = await vscode.window.showWarningMessage(
@@ -33,9 +22,8 @@ export function registerCleanAllCaches(deps: CommandDeps): vscode.Disposable {
     if (confirm !== '确认清理') return;
 
     try {
-      await webdavManager.stopAll();
+      await spaceRegistry.stopAll();
 
-      // 通过 RPC 清理所有缓存
       let spacesRemoved = 0;
       if (rpcClient?.isRunning()) {
         try {
@@ -47,15 +35,13 @@ export function registerCleanAllCaches(deps: CommandDeps): vscode.Disposable {
       }
 
       spaceManager.clear();
-      await context.globalState.update(COMPANY_FROM_STATE_KEY, undefined);
       contentQuota.reset();
       await context.globalState.update('lefs.updateCheck.lastCheck', undefined);
       await context.globalState.update('lefs.updateCheck.latestVersion', undefined);
       await context.globalState.update('lefs.updateCheck.dismissedVersion', undefined);
-      authBridge.setCompanyFrom('');
       treeProvider.refreshAll();
       void vscode.window.showInformationMessage(
-        `已清理所有本地缓存（${spacesRemoved} 个知识库），环境已恢复干净状态，请重新配置并选择知识库。`,
+        `已清理所有本地缓存（${spacesRemoved} 个知识库），环境已恢复干净状态，请重新同步知识库。`,
       );
     } catch (err) {
       void vscode.window.showErrorMessage(

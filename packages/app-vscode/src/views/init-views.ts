@@ -10,11 +10,11 @@ import * as vscode from 'vscode';
 import type { AuthBridge } from '../auth/auth-bridge.js';
 import type { LxRpcClient } from '../rpc/lx-rpc-client.js';
 import type { SpaceManager } from '../services/space-manager.js';
-import type { WebDavManager } from '../services/webdav-manager.js';
+import type { SpaceRegistry } from '../services/space-registry.js';
 import { LEFS_CHAT_SCHEME, LefsChatFileSystem, TmpDirChatManager } from './lefs-chat-fs.js';
 import { LEFS_FS_SCHEME,LefsFileSystemProvider } from './lefs-fs-provider.js';
 import { LXDOC_SCHEME,LxdocContentProvider } from './lxdoc-provider.js';
-import { SpaceStatusViewProvider } from './space-status-view.js';
+import { SpaceStatusPanelProvider } from './space-status-view.js';
 import { EntryTreeItem, LeFsDragAndDropController, SpaceTreeItem,SpaceTreeProvider } from './space-tree.js';
 import { StatusBarItem } from './status-bar.js';
 
@@ -24,7 +24,7 @@ import { StatusBarItem } from './status-bar.js';
 export interface ViewContainer {
   lefsFs: LefsFileSystemProvider;
   chatFs: LefsChatFileSystem;
-  tmpChatManager: TmpDirChatManager;
+  tmpDirChatManager: TmpDirChatManager;
   treeView: vscode.TreeView<SpaceTreeItem | EntryTreeItem>;
   sidebarTreeView: vscode.TreeView<SpaceTreeItem | EntryTreeItem>;
   dragController: LeFsDragAndDropController;
@@ -32,6 +32,8 @@ export interface ViewContainer {
   lxdocRegistration: vscode.Disposable;
   statusBar: StatusBarItem;
   chatStorageBar: vscode.StatusBarItem;
+  /** 唤起状态面板 */
+  showStatusPanel: () => void;
   /** 所有需要推入 context.subscriptions 的 disposable */
   disposables: vscode.Disposable[];
 }
@@ -44,7 +46,7 @@ export interface ViewContainer {
  */
 export function initViews(
   context: vscode.ExtensionContext,
-  webdavManager: WebDavManager,
+  spaceRegistry: SpaceRegistry,
   spaceManager: SpaceManager,
   authBridge: AuthBridge,
   treeProvider: SpaceTreeProvider,
@@ -108,15 +110,10 @@ export function initViews(
   const lxdocProvider = new LxdocContentProvider();
   if (rpcClient) lxdocProvider.setRpcClient(rpcClient);
 
-  // 按需拉取：Provider 发现 DB 无内容时通知 WebDavManager 拉取
+  // 按需拉取：Provider 发现 DB 无内容时通知 SpaceRegistry 拉取
   lxdocProvider.setContentRequestFn((spaceId, entryId, _uri) => {
-    const mcpUrl = authBridge.tryGetMcpUrl();
-    if (!mcpUrl) {
-      log(`[contentRequest] 无 mcpUrl，跳过按需拉取 ${entryId}`);
-      return;
-    }
     log(`[contentRequest] 请求按需拉取: spaceId=${spaceId}, entryId=${entryId}`);
-    webdavManager.syncSingleEntry(spaceId, entryId, mcpUrl);
+    spaceRegistry.syncSingleEntry(spaceId, entryId, '__rpc__');
   });
 
   const lxdocRegistration = vscode.workspace.registerTextDocumentContentProvider(
@@ -125,7 +122,7 @@ export function initViews(
   );
 
   // 后台内容同步完成后刷新文档
-  webdavManager.onDidChange(() => {
+  spaceRegistry.onDidChange(() => {
     log('[onDidChange] 触发，刷新所有 pending lxdoc 文档');
     lxdocProvider.refreshAllPending();
     for (const doc of vscode.workspace.textDocuments) {
@@ -138,16 +135,13 @@ export function initViews(
     }
   });
 
-  // 注册状态视图
-  const statusViewReg = vscode.window.registerWebviewViewProvider(
-    SpaceStatusViewProvider.viewType,
-    new SpaceStatusViewProvider(context.extensionUri, spaceManager, authBridge, webdavManager, rpcClient),
-  );
+  // 注册状态面板（命令唤起，非常驻）
+  const statusPanel = new SpaceStatusPanelProvider(context.extensionUri, spaceManager, authBridge, spaceRegistry, rpcClient);
 
-  const statusBar = new StatusBarItem(webdavManager);
+  const statusBar = new StatusBarItem(spaceRegistry);
 
   // 后台同步进度 → 状态栏滚动显示
-  webdavManager.onDidProgress((message) => {
+  spaceRegistry.onDidProgress((message) => {
     if (message) {
       statusBar.showProgress(message);
     } else {
@@ -164,14 +158,13 @@ export function initViews(
     treeView,
     sidebarTreeView,
     lxdocRegistration,
-    statusViewReg,
     statusBar,
   ];
 
   return {
     lefsFs,
     chatFs,
-    tmpChatManager,
+    tmpDirChatManager: tmpChatManager,
     treeView,
     sidebarTreeView,
     dragController,
@@ -179,6 +172,7 @@ export function initViews(
     lxdocRegistration,
     statusBar,
     chatStorageBar,
+    showStatusPanel: () => statusPanel.show(),
     disposables,
   };
 }

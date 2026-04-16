@@ -13,13 +13,13 @@ import { withCommand } from './types.js';
  * 工作流程：
  * 1. 从 TreeItem 提取 spaceId、spaceName
  * 2. 弹出确认对话框（modal），提示将删除本地缓存
- * 3. 停止该知识库的 WebDAV 服务（webdavManager.stop）
+ * 3. 停用该知识库（spaceRegistry.stop）
  * 4. 通过 RPC 清理该知识库的缓存
  * 5. 刷新 TreeView
  * 6. 显示完成提示
  */
 export function registerRemoveSpace(deps: CommandDeps): vscode.Disposable {
-  const { log, webdavManager, treeProvider, rpcClient } = deps;
+  const { log, spaceRegistry, treeProvider, rpcClient } = deps;
 
   return vscode.commands.registerCommand(
     'lefs.removeSpace',
@@ -39,7 +39,7 @@ export function registerRemoveSpace(deps: CommandDeps): vscode.Disposable {
       if (confirm !== '确认移除') return;
 
       try {
-        await webdavManager.stop(spaceId);
+        await spaceRegistry.stop(spaceId);
 
         // 通过 RPC 清理本地缓存
         if (rpcClient?.isRunning()) {

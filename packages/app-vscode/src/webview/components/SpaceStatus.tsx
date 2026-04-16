@@ -9,7 +9,7 @@ interface SpaceInfo {
   spaceId: string;
   spaceName: string;
   lastAccess: number;
-  isMounted: boolean;
+  isActive: boolean;
   syncStats?: { total: number; synced: number };
 }
 
@@ -54,11 +54,18 @@ export const SpaceStatus: React.FC = () => {
 
   return (
     <div className="space-status-container">
-      {state.whoami && (
+      {state.whoami ? (
         <div className="whoami-section">
           <div className="whoami-info">
             <i className="codicon codicon-account"></i>
             <span>{state.whoami.company_name} - {state.whoami.user_name}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="whoami-section unauthenticated">
+          <div className="whoami-info">
+            <i className="codicon codicon-sign-in"></i>
+            <span>未登录</span>
           </div>
         </div>
       )}
@@ -76,9 +83,13 @@ export const SpaceStatus: React.FC = () => {
       </div>
 
       <div className="spaces-list">
-        <h3>Recent Spaces ({state.spaces.length})</h3>
+        <h3>知识库 ({state.spaces.length})</h3>
         {state.spaces.length === 0 ? (
-          <div className="empty-state">No open spaces</div>
+          <div className="empty-state">
+            <i className="codicon codicon-database"></i>
+            <p className="empty-title">尚未添加知识库</p>
+            <p className="empty-hint">选择或同步一个知识库开始使用</p>
+          </div>
         ) : (
           <ul>
             {state.spaces.map(space => (

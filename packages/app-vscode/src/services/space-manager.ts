@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { WebDavManager } from './webdav-manager.js';
+import { SpaceRegistry } from './space-registry.js';
 
 export interface SpaceAccessInfo {
     spaceId: string;
@@ -13,16 +13,16 @@ export class SpaceManager {
     private _onDidChange = new vscode.EventEmitter<void>();
     readonly onDidChange = this._onDidChange.event;
     
-    constructor(private webdavManager: WebDavManager) {
+    constructor(private spaceRegistry: SpaceRegistry) {
         // 监听知识库变更，触发 LRU 检查
-        this.webdavManager.onDidChange(() => {
+        this.spaceRegistry.onDidChange(() => {
              this._onDidChange.fire();
              this.checkLimit();
         });
     }
     
     public getRecentSpaces(): SpaceAccessInfo[] {
-        const mounted = this.webdavManager.getAll();
+        const mounted = this.spaceRegistry.getAll();
         return mounted.map(s => ({
             spaceId: s.spaceId,
             spaceName: s.spaceName,
@@ -31,7 +31,7 @@ export class SpaceManager {
     }
     
     public async closeSpace(spaceId: string) {
-        await this.webdavManager.removeSpace(spaceId);
+        await this.spaceRegistry.removeSpace(spaceId);
     }
 
     /** 清空内存中的访问时间戳 */
@@ -45,7 +45,7 @@ export class SpaceManager {
         const max = config.get<number>('maxOpenSpaces', 5);
         if (max <= 0) return; // 0 means unlimited
         
-        const mounted = this.webdavManager.getAll();
+        const mounted = this.spaceRegistry.getAll();
         if (mounted.length <= max) return;
         
         // Sort by access time (oldest first)
@@ -60,7 +60,7 @@ export class SpaceManager {
         const toRemove = sorted.slice(0, toRemoveCount);
         
         for (const s of toRemove) {
-            await this.webdavManager.removeSpace(s.spaceId);
+            await this.spaceRegistry.removeSpace(s.spaceId);
         }
     }
 }

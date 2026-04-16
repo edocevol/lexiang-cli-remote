@@ -58,6 +58,10 @@ use tokio::sync::RwLock;
 pub struct ServeState {
     pub config: Config,
     pub access_token: Option<String>,
+    /// 进行中的 OAuth 流程（auth/startOAuth 创建，auth/completeOAuth 消费）
+    pub pending_oauth: Option<Arc<crate::auth::PendingOAuth>>,
+    /// 缓存的 MCP 客户端（避免每次请求都重建）
+    pub cached_mcp_client: Option<crate::mcp::McpClient>,
 }
 
 impl ServeState {
@@ -65,6 +69,8 @@ impl ServeState {
         Self {
             config,
             access_token: None,
+            pending_oauth: None,
+            cached_mcp_client: None,
         }
     }
 }
@@ -73,7 +79,7 @@ impl ServeState {
 ///
 /// Provides convenience methods for common operations (MCP client, auth, etc.)
 pub struct ServeContext {
-    state: Arc<RwLock<ServeState>>,
+    pub(crate) state: Arc<RwLock<ServeState>>,
 }
 
 impl ServeContext {
@@ -82,42 +88,108 @@ impl ServeContext {
     }
 
     /// Get a ready-to-use MCP client (resolves auth automatically)
+    ///
+    /// 缓存 `McpClient` 实例：token 不变时复用，token 变化时重建。
     pub async fn mcp_client(&self) -> Result<crate::mcp::McpClient, JsonRpcError> {
-        let state = self.state.read().await;
-        let token = crate::auth::get_access_token(&state.config)
-            .await
-            .map_err(|e| JsonRpcError::new(error_codes::AUTH_EXPIRED, e.to_string()))?;
-        crate::mcp::McpClient::new(&state.config.mcp.url, Some(token))
-            .map_err(|e| JsonRpcError::new(error_codes::INTERNAL_ERROR, e.to_string()))
-    }
+        // 1. 获取当前 token（优先内存，否则从文件读取并可能触发 refresh）
+        let token = {
+            let state = self.state.read().await;
+            match &state.access_token {
+                Some(t) => t.clone(),
+                None => {
+                    drop(state); // 释放读锁
+                                 // get_access_token 可能触发 token refresh
+                    let config = {
+                        let state = self.state.read().await;
+                        state.config.clone()
+                    };
+                    let token = crate::auth::get_access_token(&config)
+                        .await
+                        .map_err(|e| JsonRpcError::new(error_codes::AUTH_EXPIRED, e.to_string()))?;
+                    // 同步回内存
+                    {
+                        let mut state = self.state.write().await;
+                        state.access_token = Some(token.clone());
+                    }
+                    token
+                }
+            }
+        };
 
-    /// Get an MCP client for a specific `company_from` (tenant)
-    pub async fn mcp_client_for(
-        &self,
-        company_from: &str,
-    ) -> Result<crate::mcp::McpClient, anyhow::Error> {
-        let mcp_url = format!("https://{}.lexiangla.com/api/mcp", company_from);
-        let token = crate::auth::get_access_token(&self.state.read().await.config).await?;
-        crate::mcp::McpClient::new(&mcp_url, Some(token))
+        // 2. 检查缓存的 client 是否可用（token 相同）
+        {
+            let state = self.state.read().await;
+            if let Some(ref cached) = state.cached_mcp_client {
+                if cached.access_token() == Some(&token) {
+                    return Ok(cached.clone());
+                }
+            }
+        }
+
+        // 3. 创建新的 client 并缓存
+        let url = {
+            let state = self.state.read().await;
+            state.config.mcp.url.clone()
+        };
+        let client = crate::mcp::McpClient::new(&url, Some(token.clone()))
+            .map_err(|e| JsonRpcError::new(error_codes::INTERNAL_ERROR, e.to_string()))?;
+
+        {
+            let mut state = self.state.write().await;
+            state.cached_mcp_client = Some(client.clone());
+        }
+
+        tracing::debug!(
+            token_len = token.len(),
+            "mcp_client: created new client (cached)"
+        );
+        Ok(client)
     }
 
     /// Call an MCP tool directly
     pub async fn mcp_call(&self, tool_name: &str, args: Value) -> JsonRpcResult {
+        tracing::info!(tool = tool_name, "call_tool");
         let client = self.mcp_client().await?;
         self.mcp_call_with(&client, tool_name, args).await
     }
 
     /// Call an MCP tool with a pre-created client (avoids redundant auth resolution)
+    ///
+    /// 自动处理 MCP 的 { code, message, data } 响应格式：
+    /// - 如果 code == 0，返回 data 部分
+    /// - 如果 code != 0，返回错误
+    /// - 如果不是标准格式，原样返回
     pub async fn mcp_call_with(
         &self,
         client: &crate::mcp::McpClient,
         tool_name: &str,
         args: Value,
     ) -> JsonRpcResult {
-        client
+        let result = client
             .call_tool(tool_name, args)
             .await
-            .map_err(|e| JsonRpcError::new(error_codes::NETWORK_ERROR, e.to_string()))
+            .map_err(|e| JsonRpcError::new(error_codes::NETWORK_ERROR, e.to_string()))?;
+
+        // 处理 MCP 的标准响应格式 { code, message, data }
+        if let Some(code) = result.get("code").and_then(serde_json::Value::as_i64) {
+            if code == 0 {
+                // 成功，返回 data 部分（如果没有 data 则返回整个结果）
+                return Ok(result.get("data").cloned().unwrap_or(result));
+            } else {
+                // 失败，返回错误
+                let message = result
+                    .get("message")
+                    .and_then(|m| m.as_str())
+                    .unwrap_or("MCP call failed");
+                return Err(JsonRpcError::new(
+                    error_codes::NETWORK_ERROR,
+                    format!("MCP error {}: {}", code, message),
+                ));
+            }
+        }
+
+        // 不是标准格式，原样返回
+        Ok(result)
     }
 
     /// Extract a required string param
@@ -193,7 +265,22 @@ pub async fn run_serve(config: Config, verbose: bool) -> Result<()> {
         eprintln!("[lx serve] starting JSON-RPC server on stdio (verbose mode)");
     }
 
-    let state = Arc::new(RwLock::new(ServeState::new(config)));
+    // 预加载 token 到内存：即使过期也加载，让 mcp_client() 统一处理 refresh
+    let token_data = crate::auth::load_token().ok().flatten();
+    let access_token = token_data.as_ref().map(|t| t.access_token.clone());
+
+    if let Some(ref token) = access_token {
+        tracing::info!(
+            token_len = token.len(),
+            "mcp_client: token loaded from file"
+        );
+    } else {
+        tracing::info!("mcp_client: no valid token found");
+    }
+
+    let mut state = ServeState::new(config);
+    state.access_token = access_token;
+    let state = Arc::new(RwLock::new(state));
     let transport = ServeTransport::new(state, verbose);
 
     transport.run().await

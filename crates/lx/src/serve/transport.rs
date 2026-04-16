@@ -31,21 +31,9 @@ impl ServeTransport {
         // Ensure access token is resolved at startup
         {
             let mut state = self.state.write().await;
-            match crate::auth::get_access_token(&state.config).await {
-                Ok(token) => {
-                    state.access_token = Some(token);
-                    if self.verbose {
-                        eprintln!("[lx serve] auth resolved successfully");
-                    }
-                }
-                Err(e) => {
-                    eprintln!("[lx serve] warning: auth not available: {e}");
-                }
+            if let Ok(token) = crate::auth::get_access_token(&state.config).await {
+                state.access_token = Some(token);
             }
-        }
-
-        if self.verbose {
-            eprintln!("[lx serve] ready — reading JSON-RPC from stdin");
         }
 
         let mut line = String::new();

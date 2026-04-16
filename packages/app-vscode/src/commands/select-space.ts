@@ -1,14 +1,15 @@
 import * as vscode from 'vscode';
 
 import type { AuthBridge } from '../auth/auth-bridge.js';
-import type { LxRpcClient } from '../rpc/lx-rpc-client.js';
+import { getRpcClient } from '../services/rpc.js';
 import { SpacePickerPanel } from '../views/space-picker-panel.js';
 import type { PickerSelection, SearchTarget } from '../webview/shared-types.js';
 
 interface SelectSpaceOptions {
+  authBridge: AuthBridge;
+  extensionUri: vscode.Uri;
   initialSearchTarget?: SearchTarget;
   log?: (msg: string) => void;
-  rpcClient?: LxRpcClient;
 }
 
 /**
@@ -27,24 +28,21 @@ interface SelectSpaceOptions {
  *    - 执行 lefs.openDocument 打开文档
  *    - 执行 lefs.revealEntryInTree 在树中定位
  */
-export async function selectSpaceCommand(
-  authBridge: AuthBridge,
-  extensionUri: vscode.Uri,
-  options?: SelectSpaceOptions,
-): Promise<void> {
-  const selected = await SpacePickerPanel.open(extensionUri, authBridge, options?.rpcClient, {
-    initialSearchTarget: options?.initialSearchTarget,
-    log: options?.log,
+export async function selectSpaceCommand(options: SelectSpaceOptions): Promise<void> {
+  const { authBridge, extensionUri, log } = options;
+  const selected = await SpacePickerPanel.open(extensionUri, authBridge, {
+    initialSearchTarget: options.initialSearchTarget,
+    log,
   });
 
   if (!selected) return;
 
   if (selected.kind === 'space') {
-    await handleSpaceSelection(selected, authBridge, options?.log);
+    await handleSpaceSelection(selected, authBridge, log);
     return;
   }
 
-  await handleEntrySelection(selected, authBridge, options);
+  await handleEntrySelection(selected, authBridge, log);
 }
 
 async function handleSpaceSelection(
@@ -62,27 +60,28 @@ async function handleSpaceSelection(
     return;
   }
 
-  const mcpUrl = await ensureMcpUrl(authBridge);
-  if (!mcpUrl) return;
+  const authed = await ensureAuth(authBridge);
+  if (!authed) return;
 
   await vscode.commands.executeCommand(
     'lefs.syncSpace',
     selected.space.id,
     selected.space.name,
-    mcpUrl,
   );
 }
 
 async function handleEntrySelection(
   selected: Extract<PickerSelection, { kind: 'entry' }>,
   authBridge: AuthBridge,
-  options?: SelectSpaceOptions,
+  log?: (msg: string) => void,
 ): Promise<void> {
+  const rpcClient = getRpcClient();
+
   // 通过 RPC 检查知识库是否已缓存
   let cached = false;
-  if (options?.rpcClient?.isRunning()) {
+  if (rpcClient?.isRunning()) {
     try {
-      const result = await options.rpcClient.sendRequest('space/listRecent', {});
+      const result = await rpcClient.sendRequest('space/listRecent', {});
       const spaces = (result as Record<string, unknown>).spaces as Array<Record<string, unknown>> ?? [];
       cached = spaces.some((s) => (s.id as string ?? s.space_id as string) === selected.doc.spaceId);
     } catch {
@@ -97,18 +96,17 @@ async function handleEntrySelection(
       '加载并打开',
     );
     if (loadConfirm !== '加载并打开') {
-      options?.log?.('[selectSpace] 用户取消加载文档所在知识库');
+      log?.('[selectSpace] 用户取消加载文档所在知识库');
       return;
     }
 
-    const mcpUrl = await ensureMcpUrl(authBridge);
-    if (!mcpUrl) return;
+    const authed = await ensureAuth(authBridge);
+    if (!authed) return;
 
     await vscode.commands.executeCommand(
       'lefs.syncSpace',
       selected.doc.spaceId,
       selected.doc.spaceName || selected.doc.spaceId,
-      mcpUrl,
     );
   }
 
@@ -126,13 +124,14 @@ async function handleEntrySelection(
   );
 }
 
-async function ensureMcpUrl(authBridge: AuthBridge): Promise<string | undefined> {
+async function ensureAuth(authBridge: AuthBridge): Promise<boolean> {
   try {
-    return await authBridge.ensureAuthenticatedWithProgress();
+    await authBridge.ensureAuthenticatedWithProgress();
+    return true;
   } catch (err) {
     void vscode.window.showErrorMessage(
       `认证失败: ${err instanceof Error ? err.message : String(err)}`,
     );
-    return undefined;
+    return false;
   }
 }

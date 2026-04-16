@@ -1,5 +1,6 @@
 import type { LxRpcClient } from '../rpc/lx-rpc-client.js';
 import { toUriSafeName } from '../rpc/lx-types.js';
+import { markEntrySynced } from '../services/content-status.js';
 import * as vscode from 'vscode';
 
 /**
@@ -69,6 +70,7 @@ export class LxdocContentProvider implements vscode.TextDocumentContentProvider 
         });
         const content = (result as Record<string, unknown>).content as string;
         if (content) {
+          markEntrySynced(spaceId, entryId);
           this.pendingUris.delete(entryId);
           return content;
         }

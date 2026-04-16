@@ -1,9 +1,9 @@
-## 高级 Block 命令
+# 高级 Block 命令
 
 > **推荐优先使用高级命令**，原子命令适合精细控制单个块。
 > 高级命令封装多步 MCP 调用，自动处理块树遍历、内容转换等复杂逻辑。
 
-### 表格操作
+## 表格操作
 
 ```bash
 # 读取表格结构
@@ -19,7 +19,7 @@ lx block table-add-row --block-id <TABLE_ID> --values "值1,值2,值3"
 lx block table-del-row --block-id <TABLE_ID> --row 1
 ```
 
-### 文档编辑
+## 文档编辑
 
 ```bash
 # 替换标题下的段落内容（保留标题，替换正文）
@@ -33,7 +33,7 @@ lx block insert-after --block-id <ID> --content "插入的 markdown"
 lx block append --block-id <PARENT_ID> --file ./append.md
 ```
 
-### 内容导入导出
+## 内容导入导出
 
 ```bash
 # 导出为 markdown
@@ -46,9 +46,9 @@ lx block tree --block-id <ROOT_ID> [--recursive]
 lx block import --block-id <PARENT_ID> --file ./doc.md --chunk-size 20
 ```
 
-### 完整工作流示例
+## 完整工作流示例
 
-#### 修改表格单元格
+### 修改表格单元格
 
 ```bash
 # Step 1: 先查看表格当前状态
@@ -61,7 +61,7 @@ lx block table-set --block-id tbl_xxx --row 2 --col 1 --text "修正后的值"
 lx block table-get --block-id tbl_xxx --format json
 ```
 
-#### 替换文档中的某个章节
+### 替换文档中的某个章节
 
 ```bash
 # Step 1: 查看文档树结构，找到目标章节
@@ -72,7 +72,7 @@ lx block replace-section --block-id root_xxx --heading "## API 参考" \
   --file ./updated-api.md
 ```
 
-### 注意事项
+## 注意事项
 
 - 高级命令与原子命令共存于 `lx block` 命名空间
 - 高级命令（table-get、replace-section 等）优先匹配

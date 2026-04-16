@@ -72,6 +72,7 @@ export interface McpEntry {
   parentId?: string;
   createdAt?: string;
   updatedAt?: string;
+  syncStatus?: string;
 }
 
 /** Parse a raw MCP entry response into McpEntry (snake_case → camelCase) */
@@ -88,6 +89,7 @@ export function parseMcpEntry(raw: Record<string, unknown>): McpEntry {
     parentId: raw.parent_id as string | undefined,
     createdAt: raw.created_at as string | undefined,
     updatedAt: raw.updated_at as string | undefined,
+    syncStatus: raw.sync_status as string | undefined,
   };
 }
 

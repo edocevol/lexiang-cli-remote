@@ -1,7 +1,7 @@
-import type { LxRpcClient } from '../rpc/lx-rpc-client.js';
 import * as vscode from 'vscode';
 
 import type { AuthBridge } from '../auth/auth-bridge.js';
+import { getRpcClient } from '../services/rpc.js';
 import type {
   ExtensionMessage,
   PickerSelection,
@@ -27,7 +27,6 @@ export class SpacePickerPanel {
   private readonly panel: vscode.WebviewPanel;
   private readonly extensionUri: vscode.Uri;
   private readonly authBridge: AuthBridge;
-  private readonly rpcClient?: LxRpcClient;
   private readonly initialSearchTarget: SearchTarget;
   private readonly log?: (msg: string) => void;
   private resolveSelection: ((selection: PickerSelection | undefined) => void) | null = null;
@@ -37,13 +36,11 @@ export class SpacePickerPanel {
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     authBridge: AuthBridge,
-    rpcClient?: LxRpcClient,
     options?: OpenOptions,
   ) {
     this.panel = panel;
     this.extensionUri = extensionUri;
     this.authBridge = authBridge;
-    this.rpcClient = rpcClient;
     this.initialSearchTarget = options?.initialSearchTarget ?? 'space';
     this.log = options?.log;
 
@@ -57,7 +54,6 @@ export class SpacePickerPanel {
   static async open(
     extensionUri: vscode.Uri,
     authBridge: AuthBridge,
-    rpcClient?: LxRpcClient,
     options?: OpenOptions,
   ): Promise<PickerSelection | undefined> {
     if (SpacePickerPanel.currentPanel) {
@@ -78,7 +74,7 @@ export class SpacePickerPanel {
       },
     );
 
-    SpacePickerPanel.currentPanel = new SpacePickerPanel(panel, extensionUri, authBridge, rpcClient, options);
+    SpacePickerPanel.currentPanel = new SpacePickerPanel(panel, extensionUri, authBridge, options);
     return SpacePickerPanel.currentPanel.waitForSelection();
   }
 
@@ -147,14 +143,14 @@ export class SpacePickerPanel {
   private async loadRecentSpaces(): Promise<void> {
     this.appendLog('loadRecentSpaces 开始');
 
-    if (!this.rpcClient?.isRunning()) {
+    if (!getRpcClient()?.isRunning()) {
       this.appendLog('loadRecentSpaces: lx serve 未运行');
       this.postMessage({ type: 'recentSpaces', spaces: [], loading: false });
       return;
     }
 
     try {
-      const result = await this.rpcClient.sendRequest('space/listRecent', {});
+      const result = await getRpcClient()!.sendRequest('space/listRecent', {});
       const spaces = (result as Record<string, unknown>).spaces as Array<Record<string, unknown>> ?? [];
       this.appendLog(`loadRecentSpaces RPC 返回 ${spaces.length} 个`);
       this.postMessage({
@@ -173,13 +169,13 @@ export class SpacePickerPanel {
   }
 
   private async loadFrequentTeams(): Promise<void> {
-    if (!this.rpcClient?.isRunning()) {
+    if (!getRpcClient()?.isRunning()) {
       this.postMessage({ type: 'frequentTeams', teams: [], loading: false });
       return;
     }
 
     try {
-      const result = await this.rpcClient.sendRequest('team/listFrequent', {});
+      const result = await getRpcClient()!.sendRequest('team/listFrequent', {});
       const teams = (result as Record<string, unknown>).teams as Array<Record<string, unknown>> ?? [];
       this.postMessage({
         type: 'frequentTeams',
@@ -196,13 +192,13 @@ export class SpacePickerPanel {
   }
 
   private async loadMoreTeams(): Promise<void> {
-    if (!this.rpcClient?.isRunning()) {
+    if (!getRpcClient()?.isRunning()) {
       this.postMessage({ type: 'moreTeams', teams: [], loading: false });
       return;
     }
 
     try {
-      const result = await this.rpcClient.sendRequest('team/list', {});
+      const result = await getRpcClient()!.sendRequest('team/list', {});
       const teams = (result as Record<string, unknown>).teams as Array<Record<string, unknown>> ?? [];
       this.postMessage({
         type: 'moreTeams',
@@ -219,13 +215,13 @@ export class SpacePickerPanel {
   }
 
   private async loadTeamSpaces(teamId: string): Promise<void> {
-    if (!this.rpcClient?.isRunning()) {
+    if (!getRpcClient()?.isRunning()) {
       this.postMessage({ type: 'teamSpaces', teamId, spaces: [], loading: false });
       return;
     }
 
     try {
-      const result = await this.rpcClient.sendRequest('space/listByTeam', { team_id: teamId });
+      const result = await getRpcClient()!.sendRequest('space/listByTeam', { team_id: teamId });
       const spaces = (result as Record<string, unknown>).spaces as Array<Record<string, unknown>> ?? [];
       this.postMessage({
         type: 'teamSpaces',
@@ -251,7 +247,7 @@ export class SpacePickerPanel {
 
     this.appendLog(`search 开始: target=${target}, keyword=${keyword}`);
 
-    if (!this.rpcClient?.isRunning()) {
+    if (!getRpcClient()?.isRunning()) {
       this.appendLog('search: lx serve 未运行');
       this.postMessage({ type: 'spaceSearchResults', spaces: [], loading: false });
       this.postMessage({ type: 'entrySearchResults', docs: [], loading: false });
@@ -259,7 +255,7 @@ export class SpacePickerPanel {
     }
 
     try {
-      const result = await this.rpcClient.sendRequest('search', {
+      const result = await getRpcClient()!.sendRequest('search', {
         keyword,
         type: target,
         limit: 30,

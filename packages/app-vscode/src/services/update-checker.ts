@@ -95,7 +95,6 @@ async function fetchJson<T>(url: string): Promise<T | null> {
  * 查找当前平台对应的 VSIX 下载 URL。
  */
 function findVsixAsset(assets: GitHubAsset[]): GitHubAsset | null {
-  const platform = `${os.platform()}-${os.arch()}`;
   // VSIX 是平台无关的，直接找 .vsix 文件
   for (const asset of assets) {
     if (asset.name.endsWith('.vsix')) {
@@ -224,7 +223,7 @@ export class UpdateChecker implements vscode.Disposable {
     current: string,
     latest: string,
     vsixUrl: string,
-    releaseUrl: string,
+    _releaseUrl: string,
   ): Promise<void> {
     const choice = await vscode.window.showInformationMessage(
       `乐享知识库扩展有新版本可用：${current} → ${latest}`,

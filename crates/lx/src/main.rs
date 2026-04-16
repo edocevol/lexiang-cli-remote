@@ -21,7 +21,8 @@ use cmd::{Cli, Commands};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt::init();
+    // 初始化日志：如果是 serve 模式，日志写入文件；否则输出到 stderr
+    init_logging();
 
     let args: Vec<String> = std::env::args().collect();
 
@@ -234,4 +235,51 @@ async fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// 初始化日志系统
+/// - serve 模式：日志同时写入文件（JSON）和输出到 stderr（文本，供 `VSCode` 捕获）
+/// - 其他模式：日志输出到 stderr
+fn init_logging() {
+    use tracing_subscriber::prelude::*;
+
+    let args: Vec<String> = std::env::args().collect();
+    let is_serve = args.len() >= 2 && args[1] == "serve";
+
+    if is_serve {
+        // serve 模式：双输出 - 文件（JSON）+ stderr（紧凑文本，供 VSCode 实时查看）
+        let log_dir = dirs::home_dir()
+            .map(|h| h.join(".lexiang").join("logs"))
+            .unwrap_or_else(|| std::path::PathBuf::from("/tmp/lexiang-logs"));
+
+        let _ = std::fs::create_dir_all(&log_dir);
+
+        // 文件 appender（JSON 格式，用于持久化和排查）
+        let file_appender = tracing_appender::rolling::daily(log_dir, "lx");
+
+        // stderr 过滤器：只打印 lx crate 的 info+ 日志，屏蔽依赖库噪音
+        let stderr_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("lx=info"));
+
+        // stderr layer（紧凑文本格式，用于 VSCode 实时展示）
+        let stderr_layer = tracing_subscriber::fmt::layer()
+            .with_writer(std::io::stderr)
+            .with_ansi(false)
+            .compact()
+            .with_filter(stderr_filter);
+
+        // 文件 layer（JSON 格式，全量日志）
+        let file_layer = tracing_subscriber::fmt::layer()
+            .json()
+            .with_writer(file_appender)
+            .with_ansi(false);
+
+        tracing_subscriber::registry()
+            .with(stderr_layer)
+            .with(file_layer)
+            .init();
+    } else {
+        // 其他模式：日志输出到 stderr
+        tracing_subscriber::fmt::init();
+    }
 }

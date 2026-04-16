@@ -9,7 +9,7 @@ import type { LxRpcClient } from '../rpc/lx-rpc-client.js';
 import type { ContentQuotaManager } from '../services/content-quota.js';
 import type { SpaceManager } from '../services/space-manager.js';
 import type { UpdateChecker } from '../services/update-checker.js';
-import type { WebDavManager } from '../services/webdav-manager.js';
+import type { SpaceRegistry } from '../services/space-registry.js';
 import type { KbStoreFactory } from '../store/kb-store.js';
 import type { LefsChatFileSystem, TmpDirChatManager } from '../views/lefs-chat-fs.js';
 import type { EntryTreeItem, SpaceTreeItem, SpaceTreeProvider } from '../views/space-tree.js';
@@ -22,7 +22,7 @@ export interface CommandDeps {
   outputChannel: vscode.OutputChannel;
   rpcClient?: LxRpcClient;
   authBridge: AuthBridge;
-  webdavManager: WebDavManager;
+  spaceRegistry: SpaceRegistry;
   spaceManager: SpaceManager;
   contentQuota: ContentQuotaManager;
   updateChecker: UpdateChecker;
@@ -33,6 +33,8 @@ export interface CommandDeps {
   tmpChatManager: TmpDirChatManager;
   /** 知识库数据存储工厂（替代 withDb） */
   storeFactory?: KbStoreFactory;
+  /** 唤起状态面板 */
+  showStatusPanel?: () => void;
 }
 
 // ── Chat 目标平台 ─────────────────────────────────────────────────────────

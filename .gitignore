@@ -37,3 +37,4 @@ docs/plans.worktrees/
 .worktrees/
 openspec/specs
 openspec/changes
+packages/app-vscode/bin/lx

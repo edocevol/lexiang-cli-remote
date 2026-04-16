@@ -8,14 +8,24 @@ async fn handle_space_list(ctx: &ServeContext, _params: Value) -> JsonRpcResult 
     let result = ctx
         .mcp_call("space_list_recently_spaces", serde_json::json!({}))
         .await?;
-    Ok(serde_json::json!({ "spaces": result }))
+    // mcp_call_with 已经处理了 { code, message, data } 格式，这里 result 就是 data
+    // data 是 { spaces, visits }，需要提取 spaces
+    let spaces = result
+        .get("spaces")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!([]));
+    Ok(serde_json::json!({ "spaces": spaces }))
 }
 
 async fn handle_space_list_recent(ctx: &ServeContext, _params: Value) -> JsonRpcResult {
     let result = ctx
         .mcp_call("space_list_recently_spaces", serde_json::json!({}))
         .await?;
-    Ok(serde_json::json!({ "spaces": result }))
+    let spaces = result
+        .get("spaces")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!([]));
+    Ok(serde_json::json!({ "spaces": spaces }))
 }
 
 async fn handle_space_list_by_team(ctx: &ServeContext, params: Value) -> JsonRpcResult {
@@ -26,16 +36,26 @@ async fn handle_space_list_by_team(ctx: &ServeContext, params: Value) -> JsonRpc
             serde_json::json!({ "team_id": team_id }),
         )
         .await?;
-    Ok(serde_json::json!({ "spaces": result }))
+    let spaces = result
+        .get("spaces")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!([]));
+    Ok(serde_json::json!({ "spaces": spaces }))
 }
 
 async fn handle_space_describe(ctx: &ServeContext, params: Value) -> JsonRpcResult {
     let space_id = ctx.require_str(&params, "space_id")?;
-    ctx.mcp_call(
-        "space_describe_space",
-        serde_json::json!({ "space_id": space_id }),
-    )
-    .await
+    let result = ctx
+        .mcp_call(
+            "space_describe_space",
+            serde_json::json!({ "space_id": space_id }),
+        )
+        .await?;
+    // mcp_call_with 已经处理了 { code, message, data } 格式，这里 result 就是 data
+    // data 是 { space: {...}, config: {...}, is_personal: ... }
+    // 提取 space 返回给前端
+    let space = result.get("space").cloned().unwrap_or(result);
+    Ok(space)
 }
 
 async fn handle_space_mount(ctx: &ServeContext, params: Value) -> JsonRpcResult {
