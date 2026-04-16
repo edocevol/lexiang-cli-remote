@@ -6,7 +6,7 @@
  * 2. 配置 Access Token
  */
 
-import { isLxAvailable, downloadLxBinary, execLx } from './cli.js';
+import { isLxAvailable, downloadLxBinary, execLx, checkForLxUpdate, getManualInstallHelp } from './cli.js';
 
 // ---------------------------------------------------------------------------
 // Types (inline to avoid SDK version issues)
@@ -130,54 +130,66 @@ export const lexiangOnboardingAdapter: ChannelOnboardingAdapter = {
     const cliAvailable = isLxAvailable();
 
     if (!cliAvailable) {
+      const manualInstall = getManualInstallHelp();
+
       await prompter.note(
         [
           'Lexiang CLI (lx) 是访问乐享知识库的命令行工具。',
           '',
           '接下来将自动从 GitHub 下载预编译的二进制文件。',
-          '你也可以手动安装：cargo install lexiang-cli',
+          `你也可以手动安装：${manualInstall.command}`,
+          ...(manualInstall.releasesUrl ? [`GitHub Releases：${manualInstall.releasesUrl}`] : []),
         ].join('\n'),
         '安装 Lexiang CLI',
       );
 
-      const shouldInstall = await prompter.confirm({
-        message: '是否自动下载安装 lx CLI？',
-        initialValue: true,
-      });
+      try {
+        console.log('正在下载 lx CLI...');
+        const binaryPath = await downloadLxBinary();
+        console.log(`✓ 已安装到 ${binaryPath}`);
 
-      if (shouldInstall) {
-        try {
-          console.log('正在下载 lx CLI...');
-          const binaryPath = await downloadLxBinary();
-          console.log(`✓ 已安装到 ${binaryPath}`);
-
-          const version = await getLxVersion();
-          if (version) {
-            console.log(`  版本: ${version}`);
-          }
-        } catch (err) {
-          await prompter.note(
-            [
-              `自动安装失败: ${err}`,
-              '',
-              '请手动安装：',
-              '  cargo install lexiang-cli',
-              '',
-              '或从 GitHub Releases 下载预编译版本。',
-            ].join('\n'),
-            '安装失败',
-          );
-          return { success: false, cfg: next as never };
+        const version = await getLxVersion();
+        if (version) {
+          console.log(`  版本: ${version}`);
         }
-      } else {
+      } catch (err) {
+        const manualInstall = getManualInstallHelp();
+
         await prompter.note(
-          '跳过 CLI 安装。请稍后手动安装 lx CLI 后再使用乐享相关功能。',
-          '提示',
+          [
+            `自动安装失败: ${err}`,
+            '',
+            '请手动安装：',
+            `  ${manualInstall.command}`,
+            ...(manualInstall.repoUrl ? ['', `GitHub 仓库：${manualInstall.repoUrl}`] : []),
+            ...(manualInstall.releasesUrl ? [`GitHub Releases：${manualInstall.releasesUrl}`] : []),
+          ].join('\n'),
+          '安装失败',
         );
+        return { success: false, cfg: next as never };
       }
     } else {
       const version = await getLxVersion();
       console.log(`✓ lx CLI 已安装${version ? ` (${version})` : ''}`);
+
+      if (version) {
+        try {
+          const update = await checkForLxUpdate(version);
+          if (update.updateAvailable) {
+            console.log(`检测到新版本 ${update.currentVersion} -> ${update.latestVersion}，正在更新 lx CLI...`);
+            try {
+              const binaryPath = await downloadLxBinary();
+              console.log(`✓ 已更新到 ${update.latestVersion} (${binaryPath})`);
+            } catch (err) {
+              console.warn(`自动更新 lx CLI 失败: ${err}`);
+            }
+          } else {
+            console.log(`✓ lx CLI 已是最新版本 (${update.latestVersion})`);
+          }
+        } catch (err) {
+          console.warn(`检查 lx CLI 更新失败: ${err}`);
+        }
+      }
     }
 
     // ---------------------------------------------------------------------------

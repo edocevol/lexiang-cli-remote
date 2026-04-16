@@ -9,9 +9,9 @@
 
 import type { OpenClawPluginApi } from 'openclaw/plugin-sdk';
 
-import { execLx, getLxBinary, isLxAvailable, downloadLxBinary } from './cli.js';
+import { execLx, getLxBinary, isLxAvailable, downloadLxBinary, getManualInstallHelp } from './cli.js';
 import { lexiangOnboardingAdapter } from './onboarding.js';
-import { loadCachedSchema, registerToolsFromSchema, registerCoreTools } from './schema.js';
+import { loadCachedSchemaSync, registerToolsFromSchema, registerCoreTools } from './schema.js';
 import { formatToolResult } from './tools/helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -37,9 +37,10 @@ const plugin = {
   // Onboarding adapter for `openclaw onboard`
   onboarding: lexiangOnboardingAdapter,
 
-  async register(api: OpenClawPluginApi) {
+  register(api: OpenClawPluginApi) {
     const config = (api.pluginConfig || {}) as PluginConfig;
     const autoGenerateTools = config.autoGenerateTools !== false;
+    const lxAvailable = isLxAvailable();
 
     // ---------------------------------------------------------------------------
     // Status Tool (always available)
@@ -73,10 +74,16 @@ const plugin = {
               version: result.stdout.trim(),
             });
           } catch (err) {
+            const manualInstall = getManualInstallHelp();
+            const hintParts = [`Manual install: ${manualInstall.command}`];
+            if (manualInstall.releasesUrl) {
+              hintParts.push(`GitHub Releases: ${manualInstall.releasesUrl}`);
+            }
+
             return formatToolResult({
               success: false,
               error: String(err),
-              hint: 'Manual install: cargo install lexiang-cli',
+              hint: hintParts.join(' | '),
             });
           }
         }
@@ -123,7 +130,7 @@ const plugin = {
     // Auto-download CLI on first load (non-blocking)
     // ---------------------------------------------------------------------------
 
-    if (!isLxAvailable()) {
+    if (!lxAvailable) {
       api.logger.info?.('lexiang-cli: lx binary not found, downloading in background...');
 
       downloadLxBinary()
@@ -146,9 +153,9 @@ const plugin = {
     // Register Tools (schema-based or fallback)
     // ---------------------------------------------------------------------------
 
-    if (autoGenerateTools && isLxAvailable()) {
-      // 尝试从缓存加载 schema
-      const schema = await loadCachedSchema();
+    if (autoGenerateTools && lxAvailable) {
+      // 同步加载缓存 schema，确保动态 tool 在 register 返回前完成注册
+      const schema = loadCachedSchemaSync();
 
       if (schema && Object.keys(schema.tools).length > 0) {
         api.logger.info?.(`lexiang-cli: loaded ${Object.keys(schema.tools).length} tools from schema`);
