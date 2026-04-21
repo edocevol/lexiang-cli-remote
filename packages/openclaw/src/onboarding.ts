@@ -6,7 +6,7 @@
  * 2. 配置 Access Token
  */
 
-import { isLxAvailable, downloadLxBinary, execLx, checkForLxUpdate, getManualInstallHelp } from './cli.js';
+import { isLxAvailable, downloadLxBinary, execLx, getManualInstallHelp } from './cli.js';
 
 // ---------------------------------------------------------------------------
 // Types (inline to avoid SDK version issues)
@@ -130,15 +130,12 @@ export const lexiangOnboardingAdapter: ChannelOnboardingAdapter = {
     const cliAvailable = isLxAvailable();
 
     if (!cliAvailable) {
-      const manualInstall = getManualInstallHelp();
-
       await prompter.note(
         [
           'Lexiang CLI (lx) 是访问乐享知识库的命令行工具。',
           '',
           '接下来将自动从 GitHub 下载预编译的二进制文件。',
-          `你也可以手动安装：${manualInstall.command}`,
-          ...(manualInstall.releasesUrl ? [`GitHub Releases：${manualInstall.releasesUrl}`] : []),
+          '你也可以手动安装：cargo install lexiang-cli',
         ].join('\n'),
         '安装 Lexiang CLI',
       );
@@ -171,25 +168,6 @@ export const lexiangOnboardingAdapter: ChannelOnboardingAdapter = {
     } else {
       const version = await getLxVersion();
       console.log(`✓ lx CLI 已安装${version ? ` (${version})` : ''}`);
-
-      if (version) {
-        try {
-          const update = await checkForLxUpdate(version);
-          if (update.updateAvailable) {
-            console.log(`检测到新版本 ${update.currentVersion} -> ${update.latestVersion}，正在更新 lx CLI...`);
-            try {
-              const binaryPath = await downloadLxBinary();
-              console.log(`✓ 已更新到 ${update.latestVersion} (${binaryPath})`);
-            } catch (err) {
-              console.warn(`自动更新 lx CLI 失败: ${err}`);
-            }
-          } else {
-            console.log(`✓ lx CLI 已是最新版本 (${update.latestVersion})`);
-          }
-        } catch (err) {
-          console.warn(`检查 lx CLI 更新失败: ${err}`);
-        }
-      }
     }
 
     // ---------------------------------------------------------------------------

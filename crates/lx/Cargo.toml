@@ -60,6 +60,10 @@ console = "0.15"
 async-trait = "0.1"
 async-recursion = "1"
 inventory = "0.3"
+thiserror = "1"
+
+# MDX parsing (markdown-rs with MDX extensions)
+markdown = "1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

@@ -623,11 +623,9 @@ impl AliasTranslator for BatTranslator {
                 _ if arg.starts_with("--language=") => {}
                 _ if arg.starts_with("--theme=") => {}
                 _ if arg.starts_with("--style=") => {}
-                _ if arg.starts_with("--range") => {
-                    // --range=10:20 或 --range 10:20
-                    if !arg.contains('=') {
-                        i += 1; // 跳过范围参数
-                    }
+                _ if arg.starts_with("--range") && !arg.contains('=') => {
+                    // --range 10:20（非 = 形式，需要跳过下一个参数）
+                    i += 1; // 跳过范围参数
                 }
 
                 // 位置参数 (文件路径)

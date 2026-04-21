@@ -22,7 +22,15 @@ pub enum BlockType {
     NumberedList,
     ListItem,
     Quote,
+    /// 高亮提示框（容器类型，内容在 children 中）
+    Callout,
     Task,
+    /// 折叠块（可展开/收起）
+    Toggle,
+    /// 分栏容器（children 仅限 Column）
+    ColumnList,
+    /// 分栏列
+    Column,
     Image,
     Attachment,
     Video,
@@ -51,6 +59,10 @@ impl BlockType {
             "numbered_list" => Self::NumberedList,
             "list_item" => Self::ListItem,
             "quote" | "blockquote" => Self::Quote,
+            "callout" => Self::Callout,
+            "toggle" => Self::Toggle,
+            "column_list" => Self::ColumnList,
+            "column" => Self::Column,
             "task" | "task_item" => Self::Task,
             "image" => Self::Image,
             "attachment" => Self::Attachment,
@@ -79,6 +91,10 @@ impl BlockType {
             Self::NumberedList => "numbered_list",
             Self::ListItem => "list_item",
             Self::Quote => "quote",
+            Self::Callout => "callout",
+            Self::Toggle => "toggle",
+            Self::ColumnList => "column_list",
+            Self::Column => "column",
             Self::Task => "task",
             Self::Image => "image",
             Self::Attachment => "attachment",
@@ -125,34 +141,40 @@ pub struct Block {
 
 impl Block {
     /// 从 MCP JSON 解析为 Block
+    ///
+    /// 支持两种 MCP 返回格式:
+    /// 1. `describe_block`: `{ id, type, content: { text }, children: [...] }`
+    /// 2. `list_block_children`: `{ block_id, block_type, heading1/h2/paragraph: { elements: [...] } }`
     pub fn from_json(value: &serde_json::Value) -> Self {
+        // ID: block_id > id
         let id = value
-            .get("id")
+            .get("block_id")
             .and_then(|v| v.as_str())
+            .or_else(|| value.get("id").and_then(|v| v.as_str()))
             .unwrap_or("")
             .to_string();
 
+        // 类型: block_type > type
         let type_str = value
-            .get("type")
+            .get("block_type")
             .and_then(|v| v.as_str())
-            .or_else(|| value.get("block_type").and_then(|v| v.as_str()))
+            .or_else(|| value.get("type").and_then(|v| v.as_str()))
             .unwrap_or("");
-
         let block_type = BlockType::from_str(type_str);
 
-        // 文本内容：content.text > text
-        let text = value
-            .get("content")
-            .and_then(|c| c.get("text"))
-            .and_then(|t| t.as_str())
-            .or_else(|| value.get("text").and_then(|t| t.as_str()))
-            .map(std::string::ToString::to_string);
+        // 文本内容 — 多种可能的路径
+        // 优先级: content.text > text > heading*.elements[*].text_run.content > paragraph.elements[*].text_run.content
+        let text = extract_text_content(value);
 
-        let content = value
-            .get("content")
-            .cloned()
-            .unwrap_or(serde_json::json!({}));
+        // 保留原始 content
+        let content = value.get("content").cloned().unwrap_or_else(|| {
+            // 如果没有 content 字段，把整个值作为 content 保存（去掉 children）
+            let mut c = value.clone();
+            c.as_object_mut().map(|o| o.remove("children"));
+            c
+        });
 
+        // 子节点: children (describe_block 格式)
         let children = value
             .get("children")
             .and_then(|c| c.as_array())
@@ -199,6 +221,41 @@ impl Block {
         }
         None
     }
+
+    /// 递归搜索包含指定文本的块（子串匹配，不区分大小写）
+    pub fn find_text(&self, query: &str) -> Vec<BlockMatch> {
+        let mut result = Vec::new();
+        self.find_text_recursive(query, &mut Vec::new(), &mut result);
+        result
+    }
+
+    fn find_text_recursive(&self, query: &str, path: &mut Vec<String>, out: &mut Vec<BlockMatch>) {
+        path.push(self.id.clone());
+        if let Some(ref text) = self.text {
+            if text.to_lowercase().contains(&query.to_lowercase()) {
+                out.push(BlockMatch {
+                    id: self.id.clone(),
+                    block_type: self.block_type.clone(),
+                    text: Some(text.clone()),
+                    path: path.clone(),
+                });
+            }
+        }
+        for child in &self.children {
+            child.find_text_recursive(query, path, out);
+        }
+        path.pop();
+    }
+}
+
+/// 文本搜索结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlockMatch {
+    pub id: String,
+    pub block_type: BlockType,
+    pub text: Option<String>,
+    /// 从根到当前块的 ID 路径
+    pub path: Vec<String>,
 }
 
 /// 表格视图（从块树投影出来）
@@ -231,6 +288,69 @@ pub struct Cell {
     pub block_id: String,
     /// 文本内容
     pub text: String,
+}
+
+/// 从块 JSON 中提取文本内容
+///
+/// MCP 返回格式多样，需要按优先级尝试多种路径:
+/// 1. `content.text` (标准格式)
+/// 2. `text` (简化格式)
+/// 3. `heading1.elements[*].text_run.content` / `heading2.elements[*].text_run.content` ...
+/// 4. `paragraph.elements[*].text_run.content`
+/// 5. `quote.elements[*].text_run.content`
+/// 6. `task.elements[*].text_run.content`
+fn extract_text_content(value: &serde_json::Value) -> Option<String> {
+    // 路径 1: content.text > text
+    if let Some(text) = value
+        .get("content")
+        .and_then(|c| c.get("text"))
+        .and_then(|t| t.as_str())
+    {
+        return Some(text.to_string());
+    }
+    if let Some(text) = value.get("text").and_then(|t| t.as_str()) {
+        return Some(text.to_string());
+    }
+
+    // 路径 2: heading/paragraph/quote/task 的 elements 结构
+    // 检测类型字段名来确定用哪个 key
+    const TYPE_KEYS: &[&str] = &[
+        "heading1",
+        "heading2",
+        "heading3",
+        "heading4",
+        "heading5",
+        "paragraph",
+        "quote",
+        "task",
+    ];
+    for key in TYPE_KEYS {
+        if let Some(content) = value.get(key) {
+            if let Some(text) = extract_from_elements(content) {
+                return Some(text);
+            }
+        }
+    }
+
+    None
+}
+
+/// 从 elements 数组中提取文本: elements[*].`text_run.content`
+fn extract_from_elements(content: &serde_json::Value) -> Option<String> {
+    let elements = content.get("elements")?.as_array()?;
+    let parts: Vec<String> = elements
+        .iter()
+        .filter_map(|el| {
+            el.get("text_run")
+                .and_then(|t| t.get("content").and_then(|c| c.as_str()))
+        })
+        .map(std::string::ToString::to_string)
+        .collect();
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(""))
+    }
 }
 
 #[cfg(test)]

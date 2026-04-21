@@ -46,7 +46,7 @@ impl MountableFs {
         let path = super::normalize_path(path);
         self.mounts.push(MountPoint { path, fs });
         // 按路径长度倒序排列，确保最长前缀优先匹配
-        self.mounts.sort_by(|a, b| b.path.len().cmp(&a.path.len()));
+        self.mounts.sort_by_key(|b| std::cmp::Reverse(b.path.len()));
         self
     }
 

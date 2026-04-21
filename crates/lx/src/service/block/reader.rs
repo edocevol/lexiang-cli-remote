@@ -1,6 +1,6 @@
 //! 块树读取与查询
 
-use super::types::{Block, BlockType};
+use super::types::{Block, BlockMatch, BlockType};
 use super::BlockService;
 use anyhow::{bail, Result};
 
@@ -124,5 +124,131 @@ impl BlockService {
         }
 
         Ok((heading_block, section_blocks))
+    }
+
+    /// 在块树中按文本内容搜索（递归、不区分大小写）
+    ///
+    /// 支持三种搜索模式:
+    /// - `text`: 子串匹配文本内容
+    /// - `heading`: 精确匹配标题文本
+    /// - `type`: 按块类型过滤
+    pub async fn find_blocks(
+        &self,
+        root_id: &str,
+        query: &str,
+        mode: FindMode,
+        entry_id: Option<&str>,
+    ) -> Result<Vec<BlockMatch>> {
+        let tree = self.get_tree_with_entry(root_id, entry_id, true).await?;
+        match mode {
+            FindMode::Text => Ok(tree.find_text(query)),
+            FindMode::Heading => {
+                // 精确匹配标题
+                let clean = query.trim_start_matches('#').trim();
+                let matches = tree
+                    .find_text_recursive_heading(clean, &mut Vec::new())
+                    .into_iter()
+                    .map(|(block, path)| BlockMatch {
+                        id: block.id.clone(),
+                        block_type: block.block_type.clone(),
+                        text: block.text.clone(),
+                        path,
+                    })
+                    .collect();
+                Ok(matches)
+            }
+            FindMode::Type => {
+                let block_type = BlockType::from_str(query);
+                let found = tree.find_by_type(&block_type);
+                Ok(found
+                    .into_iter()
+                    .map(|b| BlockMatch {
+                        id: b.id.clone(),
+                        block_type: b.block_type.clone(),
+                        text: b.text.clone(),
+                        path: vec![b.id.clone()],
+                    })
+                    .collect())
+            }
+        }
+    }
+
+    /// 获取块树（带可选 `entry_id`）
+    async fn get_tree_with_entry(
+        &self,
+        block_id: &str,
+        entry_id: Option<&str>,
+        recursive: bool,
+    ) -> Result<Block> {
+        let mut args = serde_json::json!({
+            "with_descendants": recursive,
+        });
+        if !block_id.is_empty() {
+            args["parent_block_id"] = serde_json::json!(block_id);
+        }
+        if let Some(eid) = entry_id {
+            args["entry_id"] = serde_json::json!(eid);
+        }
+
+        let result = self
+            .mcp
+            .call_tool("block_list_block_children", args)
+            .await?;
+
+        // MCP 返回格式: { "data": { "blocks": [...] } } 或 { "children": [...] }
+        let blocks_json = result
+            .get("data")
+            .and_then(|d| d.get("blocks").or_else(|| d.get("children")))
+            .or_else(|| result.get("blocks"))
+            .or_else(|| result.get("children"))
+            .and_then(|b| b.as_array());
+
+        let children = match blocks_json {
+            Some(arr) => arr.iter().map(Block::from_json).collect(),
+            None => Vec::new(),
+        };
+
+        Ok(Block {
+            id: block_id.to_string(),
+            block_type: BlockType::Paragraph,
+            text: None,
+            content: serde_json::json!({}),
+            children,
+        })
+    }
+}
+
+/// 搜索模式
+#[derive(Debug, Clone, Copy)]
+pub enum FindMode {
+    /// 文本子串搜索（不区分大小写）
+    Text,
+    /// 标题精确匹配
+    Heading,
+    /// 块类型过滤
+    Type,
+}
+
+impl Block {
+    /// 递归查找标题并返回路径
+    fn find_text_recursive_heading<'a>(
+        &'a self,
+        clean_query: &str,
+        path: &mut Vec<String>,
+    ) -> Vec<(&'a Block, Vec<String>)> {
+        let mut result = Vec::new();
+        path.push(self.id.clone());
+        if self.block_type.is_heading() {
+            if let Some(ref text) = self.text {
+                if text.trim() == clean_query {
+                    result.push((self, path.clone()));
+                }
+            }
+        }
+        for child in &self.children {
+            result.extend(child.find_text_recursive_heading(clean_query, path));
+        }
+        path.pop();
+        result
     }
 }
