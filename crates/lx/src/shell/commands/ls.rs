@@ -57,7 +57,7 @@ impl Command for LsCommand {
 
         // 排序
         if opts.sort_by_size {
-            entries.sort_by(|a, b| b.size.cmp(&a.size));
+            entries.sort_by_key(|b| std::cmp::Reverse(b.size));
         } else if opts.sort_by_time {
             entries.sort_by(|a, b| {
                 let ta = a.modified.unwrap_or(std::time::UNIX_EPOCH);

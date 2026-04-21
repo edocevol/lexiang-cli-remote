@@ -11,7 +11,7 @@ import type { OpenClawPluginApi } from 'openclaw/plugin-sdk';
 
 import { execLx, getLxBinary, isLxAvailable, downloadLxBinary, getManualInstallHelp } from './cli.js';
 import { lexiangOnboardingAdapter } from './onboarding.js';
-import { loadCachedSchemaSync, registerToolsFromSchema, registerCoreTools } from './schema.js';
+import { loadCachedSchema, registerToolsFromSchema, registerCoreTools } from './schema.js';
 import { formatToolResult } from './tools/helpers.js';
 
 // ---------------------------------------------------------------------------
@@ -37,10 +37,9 @@ const plugin = {
   // Onboarding adapter for `openclaw onboard`
   onboarding: lexiangOnboardingAdapter,
 
-  register(api: OpenClawPluginApi) {
+  async register(api: OpenClawPluginApi) {
     const config = (api.pluginConfig || {}) as PluginConfig;
     const autoGenerateTools = config.autoGenerateTools !== false;
-    const lxAvailable = isLxAvailable();
 
     // ---------------------------------------------------------------------------
     // Status Tool (always available)
@@ -130,7 +129,7 @@ const plugin = {
     // Auto-download CLI on first load (non-blocking)
     // ---------------------------------------------------------------------------
 
-    if (!lxAvailable) {
+    if (!isLxAvailable()) {
       api.logger.info?.('lexiang-cli: lx binary not found, downloading in background...');
 
       downloadLxBinary()
@@ -153,9 +152,9 @@ const plugin = {
     // Register Tools (schema-based or fallback)
     // ---------------------------------------------------------------------------
 
-    if (autoGenerateTools && lxAvailable) {
-      // 同步加载缓存 schema，确保动态 tool 在 register 返回前完成注册
-      const schema = loadCachedSchemaSync();
+    if (autoGenerateTools && isLxAvailable()) {
+      // 尝试从缓存加载 schema
+      const schema = await loadCachedSchema();
 
       if (schema && Object.keys(schema.tools).length > 0) {
         api.logger.info?.(`lexiang-cli: loaded ${Object.keys(schema.tools).length} tools from schema`);

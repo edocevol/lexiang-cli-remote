@@ -4,9 +4,13 @@
 //! - 表格读写 (`get_table`, `set_cell`, `add_row`, `delete_row`)
 //! - 文档操作 (`replace_section`, `insert_after`, append)
 //! - 内容转换 (`blocks_to_markdown`, `markdown_to_blocks`)
+//! - MDX 转换 (`parse_mdx`, `emit_mdx`, `ir_to_descendant`, `block_to_ir`)
 
+pub mod adapter;
 pub mod converter;
 pub mod document;
+pub mod ir;
+pub mod mdx;
 pub mod reader;
 pub mod table;
 pub mod types;

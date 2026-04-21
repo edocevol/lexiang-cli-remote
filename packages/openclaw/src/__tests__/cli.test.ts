@@ -42,7 +42,6 @@ type EventCallback = (data?: Buffer | number) => void;
 describe('CLI Module', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.unstubAllGlobals();
   });
 
   describe('Platform Detection', () => {
@@ -243,61 +242,6 @@ describe('CLI Module', () => {
       const { execLxJson } = await import('../cli.js');
 
       await expect(execLxJson(['whoami'])).rejects.toThrow('exit 1');
-    });
-  });
-
-  describe('release discovery', () => {
-    it('should skip newer releases without a compatible lx asset', async () => {
-      vi.mocked(platform).mockReturnValue('darwin');
-      vi.mocked(arch).mockReturnValue('arm64');
-
-      vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue({
-          ok: true,
-          json: async () => [
-            {
-              tag_name: 'vscode-v0.0.2',
-              draft: false,
-              prerelease: false,
-              assets: [{ name: 'lefs-vscode.vsix', browser_download_url: 'https://example.com/vsix' }],
-            },
-            {
-              tag_name: 'cli-v0.0.2',
-              draft: false,
-              prerelease: false,
-              assets: [{ name: 'lx-x86_64-unknown-linux-gnu.tar.gz', browser_download_url: 'https://example.com/linux' }],
-            },
-            {
-              tag_name: 'cli-v0.0.1',
-              draft: false,
-              prerelease: false,
-              assets: [{
-                name: 'lx-aarch64-apple-darwin.tar.gz',
-                browser_download_url: 'https://example.com/macos',
-              }],
-            },
-          ],
-        })
-      );
-
-      vi.resetModules();
-      const { getLatestCompatibleLxRelease } = await import('../cli.js');
-
-      const release = await getLatestCompatibleLxRelease({ repo: 'test/repo' });
-
-      expect(release.tag).toBe('cli-v0.0.1');
-      expect(release.version).toBe('0.0.1');
-      expect(release.assetUrl).toBe('https://example.com/macos');
-    });
-
-    it('should compare lx versions across cli tags and command output', async () => {
-      vi.resetModules();
-      const { compareLxVersions } = await import('../cli.js');
-
-      expect(compareLxVersions('lexiang-cli v0.0.1', 'cli-v0.0.2')).toBeLessThan(0);
-      expect(compareLxVersions('cli-v0.0.2-beta', 'cli-v0.0.2')).toBeLessThan(0);
-      expect(compareLxVersions('v0.0.2', 'lexiang-cli v0.0.2')).toBe(0);
     });
   });
 });

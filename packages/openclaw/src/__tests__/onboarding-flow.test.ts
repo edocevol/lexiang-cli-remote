@@ -19,12 +19,6 @@ vi.mock('../cli.js', () => ({
     stderr: '',
     exitCode: 0,
   })),
-  checkForLxUpdate: vi.fn(async () => ({
-    updateAvailable: false,
-    currentVersion: '0.1.1',
-    latestVersion: '0.1.1',
-    releaseTag: 'cli-v0.1.1',
-  })),
   getManualInstallHelp: vi.fn(() => ({
     command: 'cargo install lexiang-cli',
     repoUrl: 'https://github.com/test/repo',
@@ -106,25 +100,5 @@ describe('Onboarding flow', () => {
     const cfg = result.cfg as any;
     expect(cfg.plugins.entries['lexiang-cli'].enabled).toBe(true);
     expect(cfg.plugins.entries['lexiang-cli'].config.accessToken).toBe('eyJtest-token');
-  });
-
-  it('auto-updates installed CLI when a newer compatible release is available', async () => {
-    cliInstalled = true;
-    const prompter = createPrompter();
-    const { checkForLxUpdate, downloadLxBinary } = await import('../cli.js');
-    vi.mocked(checkForLxUpdate).mockResolvedValueOnce({
-      updateAvailable: true,
-      currentVersion: '0.1.0',
-      latestVersion: '0.2.0',
-      releaseTag: 'cli-v0.2.0',
-    });
-
-    const result = await lexiangOnboardingAdapter.configure({
-      cfg: {},
-      prompter,
-    });
-
-    expect(result.success).toBe(true);
-    expect(downloadLxBinary).toHaveBeenCalled();
   });
 });

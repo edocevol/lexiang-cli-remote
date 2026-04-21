@@ -242,8 +242,11 @@ lx completion fish > ~/.config/fish/completions/lx.fish  # Fish
 
 ## 📖 文档
 
-- [使用指南](docs/USAGE.md) - 完整的使用文档
-- [API 文档](schemas/) - MCP Schema 定义
+- [文档中心](docs/README.md) — 用户手册、开发指南、设计文档
+- [快速开始](docs/user/getting-started.md) — 安装、登录、入门
+- [命令参考](docs/user/commands.md) — 全部命令用法
+- [模块边界](docs/dev/module-boundaries.md) — 代码架构与分层说明
+- [API 文档](schemas/) — MCP Schema 定义
 
 ## 📝 许可证
 
